@@ -1,0 +1,1 @@
+// Coinn - Lógica da interface: registrar movimentação, calcular saldo e exibir histórico.

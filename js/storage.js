@@ -1,0 +1,1 @@
+// Coinn - Camada de armazenamento: leitura e gravação das movimentações no localStorage.
