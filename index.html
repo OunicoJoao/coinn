@@ -1,12 +1,104 @@
 <!DOCTYPE html>
-<!-- Coinn - Página principal: formulário de lançamento, saldo e histórico. -->
-<html lang="pt-br">
+<!--
+  index.html
+  Página principal: saldo, formulário de lançamento e histórico de movimentações.
+-->
+<html lang="pt-BR">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Coinn</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="css/style.css">
+    <!-- storage.js precisa vir antes de app.js -->
+    <script src="js/storage.js" defer></script>
+    <script src="js/app.js" defer></script>
 </head>
 <body>
-    
+    <main class="container">
+
+        <!--logo da coinn-->
+        <div class="logo">
+            <img src="./img/real-brasileiro.png" alt="logo-icone" class="logo-icone">
+            <h1>Coinn</h1>
+        </div>
+
+        <!-- #18 Consultar saldo -->
+        <section class="saldo-container" aria-label="Resumo">
+            <h2>Seu saldo</h2>
+            <!--&nbsp; faz com que não quebre a linha (descobri isso e ajuda muito kkk)-->
+            <p id="saldo" class="saldo">R$&nbsp;0,00</p>
+
+            <div class="resumo">
+                <div class="resumo-entradas">
+                    <h3>Entradas</h3>
+                    <p id="total-entradas">R$&nbsp;0,00</p>
+                </div>
+                <div class="resumo-saidas">
+                    <h3>Saídas</h3>
+                    <p id="total-saidas">R$&nbsp;0,00</p>
+                </div>
+            </div>
+        </section>
+
+        <div class="conteudo">
+
+            <!-- #19 Ver histórico -->
+            <section class="historico-container">
+                <h2>Histórico</h2>
+                <p id="historico-vazio" class="historico-vazio">Nenhuma movimentação registrada ainda.</p>
+                <!--Movimentações adicionadas aqui via Javascript-->
+                <ul id="lista-movimentacoes"></ul>
+            </section>
+
+            <!-- #17 Registrar movimentação -->
+            <section class="form-container">
+                <h2>Nova movimentação</h2>
+
+                <form id="form-movimentacao" novalidate>
+                    <fieldset class="form-grupo tipo-grupo">
+                        <legend>Tipo</legend>
+                        <div class="tipo-opcoes">
+                            <label class="tipo-opcao entrada">
+                                <input type="radio" name="tipo" value="entrada" checked>
+                                <span>Entrada</span>
+                            </label>
+                            <label class="tipo-opcao saida">
+                                <input type="radio" name="tipo" value="saida">
+                                <span>Saída</span>
+                            </label>
+                        </div>
+                    </fieldset>
+
+                    <div class="form-grupo">
+                        <label for="valor">Valor (R$)</label>
+                        <input type="number" id="valor" placeholder="0,00"
+                               min="0.01" max="999999.99" step="0.01"
+                               inputmode="decimal" required>
+                    </div>
+
+                    <div class="form-grupo">
+                        <label for="data">Data</label>
+                        <input type="date" id="data" required>
+                    </div>
+
+                    <div class="form-grupo">
+                        <div class="label-linha">
+                            <label for="descricao">Descrição</label>
+                            <small id="contador-descricao" aria-live="polite">0/30</small>
+                        </div>
+                        <input type="text" id="descricao" placeholder="Ex.: Mercado, salário..."
+                               maxlength="30" autocomplete="off" required>
+                    </div>
+
+                    <p id="mensagem-erro" class="mensagem-erro" role="alert" hidden></p>
+
+                    <button type="submit">Registrar</button>
+                </form>
+            </section>
+
+        </div>
+    </main>
 </body>
 </html>
