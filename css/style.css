@@ -1,1 +1,466 @@
-/* Coinn - Estilos da aplicação. */
+/*
+ * style.css
+ * Estilos globais da aplicação para facilitar
+ */
+
+:root {
+    --laranja-escuro: #fcd97a; 
+    --cinza-claro: #ebebeb;
+    --cinza-suave: #d3d3d3;
+    --cor-entrada: #059669;
+    --cor-saida: #DC2626;
+    --texto: #2D3436;
+    --texto-forte: #1A202C;
+    --texto-suave: #718096;
+    --borda: #E2E8F0;
+    --sombra: 0 4px 12px rgba(0, 0, 0, 0.15);
+}
+
+* {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+}
+
+body {
+    background: #FFF;
+    min-height: 100vh;
+    font-family: "Poppins", sans-serif;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 20px;
+    color: var(--texto);
+}
+
+.container {
+    width: 100%;
+    max-width: 1200px;
+    background-color: #d6d6d6;
+    padding: 2rem;
+    border-radius: 24px;
+    box-shadow: 0 12px 24px rgba(0, 0, 0, 0.15);
+}
+
+
+.logo{
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 12px;
+    margin-bottom: 35px;
+}
+
+.logo-icone{
+    width: 44px;
+    height: 44px;
+}
+
+h1 {
+    margin-bottom: 0;
+    color: #FFF;
+}
+
+h2 {
+    color: var(--texto-forte);
+    margin-bottom: 1rem;
+    font-size: 1.25rem;
+    font-weight: 500;
+}
+
+/* ---------- Saldo (#18) ---------- */
+
+.saldo-container {
+    text-align: center;
+    margin-bottom: 35px;
+    padding: 24px;
+    background:var(--cinza-claro);
+    border-radius: 1rem;
+    box-shadow: var(--sombra);
+    border: 2px solid var(--cinza-claro);
+    transition:transform 1s ease, border 1s ease;
+}
+
+.saldo-container:hover{
+    border: 2px solid var(--laranja-escuro);
+    transform: translateY(-5px);
+}
+
+.saldo {
+    font-size: 3rem;
+    font-weight: 600;
+    color: var(--texto-forte);
+    margin: 15px 0 20px;
+}
+
+.saldo.negativo {
+    color: #991B1B;
+}
+
+.resumo {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 24px;
+    margin-top: 24px;
+}
+
+.resumo-entradas,
+.resumo-saidas {
+    background-color: #FFF;
+    padding: 24px;
+    border-radius: 1rem;
+    box-shadow: var(--sombra);
+    transition: transform 0.2s ease;
+}
+
+.resumo-entradas:hover,
+.resumo-saidas:hover {
+    transform: translateY(-2px);
+}
+
+.resumo-entradas h3,
+.resumo-saidas h3 {
+    font-size: 1.1rem;
+    font-weight: 500;
+}
+
+.resumo-entradas p,
+.resumo-saidas p {
+    margin-top: 8px;
+    font-size: 1.75rem;
+    font-weight: 600;
+}
+
+.resumo-entradas h3,
+.resumo-entradas p {
+    color: var(--cor-entrada);
+}
+
+.resumo-saidas h3,
+.resumo-saidas p {
+    color: var(--cor-saida);
+}
+
+/* ---------- Layout principal ---------- */
+
+.conteudo {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 24px;
+}
+
+/* ---------- Histórico (#19) ---------- */
+
+.historico-container {
+    display: flex;
+    flex-direction: column;
+    min-width: 0;
+}
+
+.historico-vazio {
+    color: var(--texto-forte);
+    padding: 1rem 0;
+}
+
+#lista-movimentacoes {
+    list-style: none;
+    max-height: 500px;
+    overflow-y: auto;
+    padding-right: 8px;
+    flex-grow: 1;
+}
+
+#lista-movimentacoes::-webkit-scrollbar {
+    width: 8px;
+}
+
+#lista-movimentacoes::-webkit-scrollbar-track {
+    background-color: #F1F1F1;
+    border-radius: 4px;
+}
+
+#lista-movimentacoes::-webkit-scrollbar-thumb {
+    background-color: #b5bac0;
+    border-radius: 4px;
+}
+
+#lista-movimentacoes::-webkit-scrollbar-thumb:hover {
+    background-color: #A0AEC0;
+}
+
+.movimentacao {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 12px;
+    padding: 1rem 1.2rem;
+    margin-bottom: 12px;
+    border-radius: 12px;
+    background-color: #FFF;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05);
+    transition: all 0.2s ease;
+    border-right: 5px solid;
+    animation: entrarDeslizando 0.3s ease;   
+}
+
+@keyframes entrarDeslizando {
+    from {
+        opacity: 0;
+        transform: translateX(-20px);
+    }
+    to {
+        opacity: 1;
+        transform: translateX(0);
+    }
+}
+
+.movimentacao:hover {
+    transform: translateX(4px);
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+}
+    
+.movimentacao.entrada {
+    border-right-color: var(--cor-entrada);
+}
+
+.movimentacao.saida {
+    border-right-color: var(--cor-saida);
+}
+
+.movimentacao-info {
+    display: flex;
+    flex-direction: column;
+    min-width: 0;
+}
+
+.movimentacao-descricao {
+    font-weight: 500;
+    overflow-wrap: anywhere;
+}
+
+.movimentacao-data {
+    font-size: 0.85rem;
+    color: var(--texto-suave);
+}
+
+.movimentacao-valor {
+    font-weight: 600;
+    white-space: nowrap;
+}
+
+.movimentacao.entrada .movimentacao-valor {
+    color: var(--cor-entrada);
+}
+
+.movimentacao.saida .movimentacao-valor {
+    color: var(--cor-saida);
+}
+
+/* ---------- Formulário (#17) ---------- */
+.form-container {
+    background: var(--cinza-claro);
+    padding: 24px;
+    border-radius: 16px;
+    box-shadow: var(--sombra);
+    display: flex;
+    flex-direction: column;
+    border: 2px solid var(--cinza-claro);
+    transition:transform 1s ease, border 1s ease;
+}
+
+.form-container:hover{
+    border: 2px solid var(--laranja-escuro);
+    transform: translateY(-5px);
+}
+
+
+.form-container form {
+    height: 100%;
+    display: flex;
+    flex-direction: column;
+}
+
+.form-grupo {
+    margin-bottom: 20px;
+}
+
+fieldset {
+    border: none;
+}
+
+label,
+legend {
+    display: block;
+    margin-bottom: 8px;
+    color: #4A5568;
+    font-weight: 500;
+}
+
+.label-linha {
+    display: flex;
+    justify-content: space-between;
+    align-items: baseline;
+}
+
+.label-linha small {
+    color: var(--texto-suave);
+    font-size: 0.85rem;
+}
+
+input[type="text"],
+input[type="number"],
+input[type="date"] {
+    width: 100%;
+    padding: 12px 16px;
+    border: 2px solid var(--borda);
+    border-radius: 8px;
+    font-size: 1rem;
+    font-family: inherit;
+    transition: all 0.2s ease;
+    background-color: #FFF;
+    color: var(--texto);
+}
+
+input[type="text"]:hover,
+input[type="number"]:hover,
+input[type="date"]:hover {
+    border-color: #CBD5E0;
+}
+
+input[type="text"]:focus,
+input[type="number"]:focus,
+input[type="date"]:focus {
+    outline: none;
+    border-color: var(--laranja-escuro);
+    box-shadow: 0 0 0 3px rgba(255, 193, 35, 0.15);
+}
+
+/* Seletor de tipo (entrada / saída) em forma de botões */
+.tipo-opcoes {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 12px;
+}
+
+.tipo-opcao {
+    margin: 0;
+    cursor: pointer;
+}
+
+.tipo-opcao input {
+    position: absolute;
+    opacity: 0;
+    pointer-events: none;
+}
+
+.tipo-opcao span {
+    display: block;
+    text-align: center;
+    padding: 10px;
+    border: 2px solid var(--borda);
+    border-radius: 8px;
+    background-color: #FFF;
+    transition: all 0.2s ease;
+}
+
+.tipo-opcao.entrada input:checked + span {
+    border-color: var(--cor-entrada);
+    background-color: #ECFDF5;
+    color: var(--cor-entrada);
+}
+
+.tipo-opcao.saida input:checked + span {
+    border-color: var(--cor-saida);
+    background-color: #FEF2F2;
+    color: var(--cor-saida);
+}
+
+.tipo-opcao input:focus-visible + span {
+    box-shadow: 0 0 0 3px rgba(46, 139, 87, 0.3);
+}
+
+.mensagem-erro {
+    color: var(--cor-saida);
+    background-color: #FEF2F2;
+    border-radius: 8px;
+    padding: 10px 14px;
+    margin-bottom: 16px;
+    font-size: 0.9rem;
+}
+
+button[type="submit"] {
+    width: 100%;
+    padding: 14px;
+    background: #FFF;
+    color: var(--texto-suave);
+    border: none;
+    border-radius: 8px;
+    cursor: pointer;
+    font-size: 1rem;
+    font-family: inherit;
+    font-weight: 500;
+    transition: all 0.2s ease;
+    box-shadow: var(--sombra);
+    margin-top: auto;
+}
+
+button[type="submit"]:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 6px 16px rgba(139, 133, 46, 0.25);
+    background: linear-gradient(135deg, var(--laranja-escuro) 0%, #fff051 100%);
+    color: #FFF;
+}
+
+button[type="submit"]:active {
+    transform: translateY(0);
+}
+
+/* ---------- Responsividade ---------- */
+
+@media (max-width: 900px) {
+    .conteudo {
+        grid-template-columns: 1fr;
+    }
+
+    /* No celular, o formulário aparece antes do histórico */
+    .form-container {
+        order: -1;
+    }
+
+    #lista-movimentacoes {
+        max-height: 300px;
+    }
+}
+
+@media (max-width: 480px) {
+    body {
+        padding: 12px;
+    }
+
+    .container {
+        padding: 20px;
+    }
+
+    .resumo {
+        grid-template-columns: 1fr;
+        gap: 16px;
+    }
+
+    .saldo {
+        font-size: 2.3rem;
+    }
+
+    .resumo-entradas p,
+    .resumo-saidas p {
+        font-size: 1.5rem;
+    }
+
+    .movimentacao {
+        padding: 14px 16px;
+    }
+
+    h1 {
+        font-size: 1.8rem;
+    }
+}
+
