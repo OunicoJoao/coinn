@@ -103,12 +103,18 @@ A documentação completa está na **Wiki** do projeto no Azure DevOps:
 Link: <URL-DA-WIKI>
 
 ## Como contribuir
-
-1. Atualize a `main`: `git switch main` e `git pull`
-2. Crie uma branch para a story: `git switch -c feature/nome-da-funcionalidade`
-3. Faça commits curtos com prefixo e número da story, por exemplo `feat: adiciona filtro por mês #22`
-4. Envie a branch: `git push -u origin feature/nome-da-funcionalidade`
-5. Abra um Pull Request para a `main`, com o número da story no título, e peça a revisão de um colega
+1. Selecione o diretório do projeto utilizando `cd coinn`
+2. Atualize a `main`: `git switch main` e `git pull`
+3. Realize a criação de uma nova branch: `git checkout -b feature/nome-da-funcionalidade`
+4. Verifique se está na branch correta, utilizando o:`git switch feature/AttReadme`
+5. Realize as alterações necessárias
+6. Após alterações ,verificar o status da branch e seu foram registradas modificações: `git status`
+7. Sempre que realizar alterações no VS Code (Ou semelhantes), salvar com CTRL + S
+8. Realize o add da modificação na branch utilizada, através do comando: `git add nome do arquivo`
+9. Verifique o status para confirmar a adição: `git status`
+10. Faça commits curtos com prefixo e número da story, por exemplo `git commit -m "docs: Modificação Readme"`
+11. Envie a branch: `git push -u origin feature/nome-da-funcionalidade`
+12. Abra um Pull Request para a `main`, com o número da story no título, e peça a revisão de um colega
 
 A `main` é protegida: toda alteração entra por Pull Request com pelo menos uma aprovação. Os detalhes estão na página **Estratégia de Branches e Como Contribuir** da Wiki.
 
@@ -116,8 +122,8 @@ A `main` é protegida: toda alteração entra por Pull Request com pelo menos um
 
 | Nome | Papel |
 |---|---|
-| <!-- Nome --> | <!-- Ex.: Desenvolvimento --> |
-| <!-- Nome --> | <!-- Ex.: Revisão de código e testes --> |
-| <!-- Nome --> | <!-- Ex.: Documentação e Wiki --> |
-| <!-- Nome --> | <!-- Ex.: Infraestrutura e Pipeline --> |
-
+| Arthur Ferreira da Silva | Desenvolvimento |
+| João Pedro Adam da Silva de Souza | Product Owner |
+| Lucas Ávila Kautzmanni | Scrum Master |
+| Leonardo Fernandes | Desenvolvimento |
+| Vitório de Conto Barbosa | Desenvolvimento |
