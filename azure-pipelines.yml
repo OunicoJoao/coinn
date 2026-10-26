@@ -1,0 +1,36 @@
+# Coinn - azure-pipelines.yml
+# Integração Contínua (CI): verifica o código automaticamente a cada alteração.
+#
+# - Push na main: roda pelo "trigger" abaixo.
+# - Pull Requests: rodam pela política "Build validation" da branch main
+#   (Project settings > Repositories > Policies > main > Build validation),
+#   que mostra o resultado no PR e bloqueia o merge se falhar.
+
+trigger:
+  branches:
+    include:
+      - main
+
+pool:
+  vmImage: ubuntu-latest
+
+steps:
+  - script: |
+      set -e
+      for arquivo in index.html css/style.css js/storage.js js/app.js; do
+        if [ ! -f "$arquivo" ]; then
+          echo "##vso[task.logissue type=error]Arquivo obrigatório ausente: $arquivo"
+          exit 1
+        fi
+        echo "OK  $arquivo"
+      done
+    displayName: 'Verificar arquivos obrigatórios'
+
+  - script: |
+      set -e
+      node --version
+      for arquivo in js/*.js; do
+        node --check "$arquivo"
+        echo "OK  $arquivo"
+      done
+    displayName: 'Verificar sintaxe do JavaScript'
