@@ -72,15 +72,19 @@ O saldo não é armazenado: ele é calculado a partir das movimentações sempre
 ```
 Coinn/
 ├── README.md
-├── index.html        Página principal
+├── index.html            Página principal
 ├── css/
-│   └── style.css     Estilos da aplicação
+│   └── style.css         Estilos da aplicação
 ├── js/
-│   ├── storage.js    Leitura e gravação no localStorage
-│   └── app.js        Lógica da interface
-├── img/              Imagens e ícones
-└── docs/             Documentação complementar
+│   ├── regras.js         Regras de negócio (funções puras, testáveis)
+│   ├── storage.js        Leitura e gravação no localStorage
+│   └── app.js            Interface: formulário, lista, botões
+├── img/                  Imagens e ícones
+├── docs/                 Documentação complementar
+└── azure-pipelines.yml   Pipeline de CI
 ```
+
+Cada arquivo de `js/` tem uma única responsabilidade: `regras.js` decide, `storage.js` guarda e `app.js` mostra na tela.
 
 ## Tecnologias
 

@@ -1,0 +1,9 @@
+# Padroniza o final de linha (LF) no repositório e na pasta de trabalho.
+# Sem isso, no Windows o Git pode marcar arquivos inteiros como alterados
+# só porque o final de linha virou CRLF.
+* text=auto eol=lf
+
+# Arquivos binários: nunca converter
+*.png binary
+*.jpg binary
+*.ico binary
