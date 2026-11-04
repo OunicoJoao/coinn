@@ -4,7 +4,7 @@
  *
  * Tudo aqui é função pura: recebe dados e devolve um resultado, sem mexer
  * na tela (DOM) nem no localStorage. Por isso essas regras podem ser testadas
- * sem precisar do navegador.
+ * automaticamente com o Node, sem navegador (veja tests/regras.test.js).
  *
  * Padrão de projeto: Module. Tudo fica dentro do objeto "Regras", em vez de
  * espalhar dezenas de funções soltas no escopo global do navegador.
@@ -42,9 +42,17 @@ const Regras = (function () {
         return typeof valor === "string" ? valor.trim() : "";
     }
 
-    // Confere o formato "AAAA-MM-DD"
+    // Confere o formato "AAAA-MM-DD" e se a data existe no calendário
+    // (o regex sozinho aceitava datas como "2026-13-45" ou "2026-02-31")
     function dataValida(data) {
-        return typeof data === "string" && /^\d{4}-\d{2}-\d{2}$/.test(data);
+        if (typeof data !== "string" || !/^\d{4}-\d{2}-\d{2}$/.test(data)) {
+            return false;
+        }
+        const [ano, mes, dia] = data.split("-").map(Number);
+        const teste = new Date(Date.UTC(ano, mes - 1, dia));
+        return teste.getUTCFullYear() === ano
+            && teste.getUTCMonth() === mes - 1
+            && teste.getUTCDate() === dia;
     }
 
     // ---------- Validação ----------
@@ -92,15 +100,27 @@ const Regras = (function () {
 
     // ---------- #18 Saldo ----------
 
-    // Total de entradas, total de saídas e saldo
+    // Soma em centavos (números inteiros) para evitar erros de ponto flutuante:
+    // em JavaScript 0.1 + 0.2 = 0.30000000000000004, o que fazia um saldo zerado
+    // aparecer como "-R$ 0,00" em vermelho
     function calcularResumo(lista) {
-        const somarPorTipo = (tipo) => lista
-            .filter((mov) => mov.tipo === tipo)
-            .reduce((total, mov) => total + mov.valor, 0);
+        let entradasCentavos = 0;
+        let saidasCentavos = 0;
 
-        const entradas = somarPorTipo(TIPO.ENTRADA);
-        const saidas = somarPorTipo(TIPO.SAIDA);
-        return { entradas, saidas, saldo: entradas - saidas };
+        lista.forEach((mov) => {
+            const centavos = Math.round(mov.valor * 100);
+            if (mov.tipo === TIPO.ENTRADA) {
+                entradasCentavos += centavos;
+            } else if (mov.tipo === TIPO.SAIDA) {
+                saidasCentavos += centavos;
+            }
+        });
+
+        return {
+            entradas: entradasCentavos / 100,
+            saidas: saidasCentavos / 100,
+            saldo: (entradasCentavos - saidasCentavos) / 100
+        };
     }
 
     // ---------- #19 Histórico: ordenação ----------
@@ -154,3 +174,9 @@ const Regras = (function () {
         dataISO
     });
 })();
+
+// No navegador, "Regras" vira uma variável global usada pelo app.js.
+// No Node (testes), o arquivo é carregado com require().
+if (typeof module !== "undefined" && module.exports) {
+    module.exports = Regras;
+}

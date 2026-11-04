@@ -49,3 +49,8 @@ const Armazenamento = (function () {
         salvarMovimentacoes
     });
 })();
+
+// Permite carregar o arquivo nos testes do Node com require()
+if (typeof module !== "undefined" && module.exports) {
+    module.exports = Armazenamento;
+}

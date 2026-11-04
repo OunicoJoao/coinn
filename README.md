@@ -29,6 +29,16 @@ O Coinn não precisa de instalação, servidor ou banco de dados.
 
 Também é possível usar a extensão **Live Server** do VS Code: clique com o botão direito em `index.html` e escolha **Open with Live Server**.
 
+## Testes e qualidade de código
+
+Para rodar os testes é preciso ter o [Node.js](https://nodejs.org/) 20 ou mais novo. O site em si não usa o Node; ele só serve para essa verificação.
+
+```
+npm test           # roda os testes automatizados
+```
+
+- **Testes automatizados** ficam na pasta `tests/` e usam o executor de testes nativo do Node (`node:test`). Eles cobrem as regras de negócio (`js/regras.js`) e a camada de armazenamento (`js/storage.js`).
+
 ## Como os dados são guardados
 
 As movimentações ficam salvas no **localStorage** do navegador, na chave `coinn.movimentacoes`. Isso significa que:
@@ -80,8 +90,10 @@ Coinn/
 │   ├── storage.js        Leitura e gravação no localStorage
 │   └── app.js            Interface: formulário, lista, botões
 ├── img/                  Imagens e ícones
+├── tests/                Testes automatizados
 ├── docs/                 Documentação complementar
-└── azure-pipelines.yml   Pipeline de CI
+├── azure-pipelines.yml   Pipeline de CI
+└── package.json          Script de testes
 ```
 
 Cada arquivo de `js/` tem uma única responsabilidade: `regras.js` decide, `storage.js` guarda e `app.js` mostra na tela.
@@ -90,6 +102,7 @@ Cada arquivo de `js/` tem uma única responsabilidade: `regras.js` decide, `stor
 
 - HTML5, CSS3 e JavaScript puro (sem frameworks)
 - localStorage do navegador
+- Node.js (`node:test`), só para os testes automatizados
 - Azure DevOps: Boards, Repos, Wiki e Pipelines
 
 ## Documentação
