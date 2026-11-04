@@ -17,7 +17,7 @@ pool:
 steps:
   - script: |
       set -e
-      for arquivo in index.html css/style.css js/storage.js js/app.js; do
+      for arquivo in index.html css/style.css js/regras.js js/storage.js js/app.js; do
         if [ ! -f "$arquivo" ]; then
           echo "##vso[task.logissue type=error]Arquivo obrigatório ausente: $arquivo"
           exit 1
