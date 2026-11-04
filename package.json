@@ -4,7 +4,8 @@
   "description": "Aplicação web de finanças pessoais: registre entradas e saídas, acompanhe o saldo e o histórico. Dados salvos só no navegador.",
   "private": true,
   "scripts": {
-    "test": "node --test"
+    "test": "node --test",
+    "test:ci": "node --test --test-reporter=spec --test-reporter-destination=stdout --test-reporter=junit --test-reporter-destination=resultados-testes.xml"
   },
   "engines": {
     "node": ">=20"

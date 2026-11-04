@@ -38,6 +38,7 @@ npm test           # roda os testes automatizados
 ```
 
 - **Testes automatizados** ficam na pasta `tests/` e usam o executor de testes nativo do Node (`node:test`). Eles cobrem as regras de negócio (`js/regras.js`) e a camada de armazenamento (`js/storage.js`).
+- **Pipeline (Azure Pipelines)** roda os testes automaticamente em todo Pull Request, e o merge só é liberado se passar.
 
 ## Como os dados são guardados
 

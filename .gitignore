@@ -120,3 +120,6 @@ dist
 # Arquivos de sistema
 .DS_Store
 Thumbs.db
+
+# Resultado dos testes gerado pelo pipeline
+resultados-testes.xml

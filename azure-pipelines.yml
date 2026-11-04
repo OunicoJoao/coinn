@@ -5,6 +5,8 @@
 # - Pull Requests: rodam pela política "Build validation" da branch main
 #   (Project settings > Repositories > Policies > main > Build validation),
 #   que mostra o resultado no PR e bloqueia o merge se falhar.
+#
+# Etapas: arquivos obrigatórios -> sintaxe -> testes automatizados
 
 trigger:
   branches:
@@ -15,6 +17,12 @@ pool:
   vmImage: ubuntu-latest
 
 steps:
+  # Fixa a versão do Node, para o pipeline não mudar de comportamento quando a máquina for atualizada
+  - task: NodeTool@0
+    displayName: 'Usar Node.js 22'
+    inputs:
+      versionSpec: '22.x'
+
   - script: |
       set -e
       for arquivo in index.html css/style.css js/regras.js js/storage.js js/app.js; do
@@ -28,9 +36,20 @@ steps:
 
   - script: |
       set -e
-      node --version
       for arquivo in js/*.js; do
         node --check "$arquivo"
         echo "OK  $arquivo"
       done
     displayName: 'Verificar sintaxe do JavaScript'
+
+  - script: npm run test:ci
+    displayName: 'Executar testes automatizados'
+
+  # Mostra o resultado de cada teste na aba "Tests" do pipeline (roda mesmo se algum teste falhar)
+  - task: PublishTestResults@2
+    displayName: 'Publicar resultado dos testes'
+    condition: succeededOrFailed()
+    inputs:
+      testResultsFormat: 'JUnit'
+      testResultsFiles: 'resultados-testes.xml'
+      testRunTitle: 'Testes automatizados do Coinn'
