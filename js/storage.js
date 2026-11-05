@@ -11,6 +11,7 @@
  * (O nome não é "Storage" porque esse nome já existe no navegador.)
  */
 
+/* exported Armazenamento */
 const Armazenamento = (function () {
     "use strict";
 

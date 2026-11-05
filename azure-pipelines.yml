@@ -6,7 +6,7 @@
 #   (Project settings > Repositories > Policies > main > Build validation),
 #   que mostra o resultado no PR e bloqueia o merge se falhar.
 #
-# Etapas: arquivos obrigatórios -> sintaxe -> testes automatizados
+# Etapas: arquivos obrigatórios -> sintaxe -> padrão de código (ESLint) -> testes automatizados
 
 trigger:
   branches:
@@ -41,6 +41,13 @@ steps:
         echo "OK  $arquivo"
       done
     displayName: 'Verificar sintaxe do JavaScript'
+
+  # Instala as dependências exatamente nas versões do package-lock.json
+  - script: npm ci
+    displayName: 'Instalar dependências'
+
+  - script: npm run lint
+    displayName: 'Verificar padrão de código (ESLint)'
 
   - script: npm run test:ci
     displayName: 'Executar testes automatizados'
