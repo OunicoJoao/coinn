@@ -31,14 +31,17 @@ Também é possível usar a extensão **Live Server** do VS Code: clique com o b
 
 ## Testes e qualidade de código
 
-Para rodar os testes é preciso ter o [Node.js](https://nodejs.org/) 20 ou mais novo. O site em si não usa o Node; ele só serve para essa verificação.
+Para rodar os testes e o lint é preciso ter o [Node.js](https://nodejs.org/) 20 ou mais novo. O site em si não usa o Node; ele só serve para essas verificações.
 
 ```
+npm install        # instala o ESLint (só na primeira vez)
 npm test           # roda os testes automatizados
+npm run lint       # verifica o padrão do código
 ```
 
 - **Testes automatizados** ficam na pasta `tests/` e usam o executor de testes nativo do Node (`node:test`). Eles cobrem as regras de negócio (`js/regras.js`) e a camada de armazenamento (`js/storage.js`).
-- **Pipeline (Azure Pipelines)** roda os testes automaticamente em todo Pull Request, e o merge só é liberado se passar.
+- **ESLint** verifica erros comuns e o padrão do código, com as regras em `eslint.config.js`.
+- **Pipeline (Azure Pipelines)** roda tudo isso automaticamente em todo Pull Request, e o merge só é liberado se passar.
 
 ## Como os dados são guardados
 
@@ -94,7 +97,8 @@ Coinn/
 ├── tests/                Testes automatizados
 ├── docs/                 Documentação complementar
 ├── azure-pipelines.yml   Pipeline de CI
-└── package.json          Script de testes
+├── eslint.config.js      Regras do ESLint
+└── package.json          Scripts de teste e lint
 ```
 
 Cada arquivo de `js/` tem uma única responsabilidade: `regras.js` decide, `storage.js` guarda e `app.js` mostra na tela.
@@ -103,7 +107,7 @@ Cada arquivo de `js/` tem uma única responsabilidade: `regras.js` decide, `stor
 
 - HTML5, CSS3 e JavaScript puro (sem frameworks)
 - localStorage do navegador
-- Node.js (`node:test`), só para os testes automatizados
+- Node.js (`node:test`) e ESLint, só para testes e qualidade de código
 - Azure DevOps: Boards, Repos, Wiki e Pipelines
 
 ## Documentação
@@ -121,20 +125,15 @@ A documentação completa está na **Wiki** do projeto no Azure DevOps:
 Link: <URL-DA-WIKI>
 
 ## Como contribuir
-1. Selecione o diretório do projeto utilizando `cd coinn`
-2. Atualize a `main`: `git switch main` e `git pull`
-3. Realize a criação de uma nova branch: `git checkout -b feature/nome-da-funcionalidade`
-4. Verifique se está na branch correta, utilizando o:`git switch feature/AttReadme`
-5. Realize as alterações necessárias
-6. Após alterações ,verificar o status da branch e seu foram registradas modificações: `git status`
-7. Sempre que realizar alterações no VS Code (Ou semelhantes), salvar com CTRL + S
-8. Realize o add da modificação na branch utilizada, através do comando: `git add nome do arquivo`
-9. Verifique o status para confirmar a adição: `git status`
-10. Faça commits curtos com prefixo e número da story, por exemplo `git commit -m "docs: Modificação Readme"`
-11. Envie a branch: `git push -u origin feature/nome-da-funcionalidade`
-12. Abra um Pull Request para a `main`, com o número da story no título, e peça a revisão de um colega
 
-A `main` é protegida: toda alteração entra por Pull Request com pelo menos uma aprovação. Os detalhes estão na página **Estratégia de Branches e Como Contribuir** da Wiki.
+1. Atualize a `main`: `git switch main` e `git pull`
+2. Crie uma branch para a story: `git switch -c feature/nome-da-funcionalidade`
+3. Antes de enviar, rode `npm test` e `npm run lint`
+4. Faça commits curtos com prefixo e número da story, por exemplo `feat: adiciona filtro por categoria #58`
+5. Envie a branch: `git push -u origin feature/nome-da-funcionalidade`
+6. Abra um Pull Request para a `main`, com o número da story no título, e peça a revisão de um colega
+
+A `main` é protegida: toda alteração entra por Pull Request, com pelo menos uma aprovação e com o pipeline passando. Os detalhes estão na página **Estratégia de Branches e Como Contribuir** da Wiki.
 
 ## Equipe
 

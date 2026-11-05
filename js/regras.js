@@ -13,6 +13,7 @@
  *   { id, tipo ("entrada" | "saida"), valor, data ("AAAA-MM-DD"), descricao }
  */
 
+/* exported Regras */
 const Regras = (function () {
     "use strict";
 

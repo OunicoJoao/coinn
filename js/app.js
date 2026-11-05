@@ -8,6 +8,8 @@
  * - O acesso aos dados fica em storage.js.
  */
 
+/* global Regras, Armazenamento */
+
 // ---------- Constantes ----------
 
 const { TIPO, LIMITES } = Regras;
