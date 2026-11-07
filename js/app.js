@@ -2,7 +2,7 @@
  * app.js
  * Lógica da interface: registrar movimentação (#17), consultar saldo (#18),
  * ver histórico (#19), editar e excluir (#20) e limpar tudo.
- * Na barra do topo: exportar/importar os dados (#21).
+ * Na barra do topo: mostrar/ocultar valores e exportar/importar os dados (#21).
  *
  * Este arquivo só cuida da tela (ler o formulário, desenhar a lista, reagir a cliques).
  * - As regras de negócio (validar, calcular, ordenar) ficam em regras.js.
@@ -14,6 +14,9 @@
 // ---------- Constantes ----------
 
 const { TIPO, LIMITES } = Regras;
+
+// Texto mostrado no lugar dos valores quando o "olho" está fechado
+const VALOR_OCULTO = "R$ •••••";
 
 // Tempo que o aviso rápido fica na tela
 const DURACAO_AVISO_MS = 3500;
@@ -36,6 +39,7 @@ const dataEl = document.getElementById("data");
 const erroEl = document.getElementById("mensagem-erro");
 const btnRegistrarEl = document.getElementById("btn-registrar");
 const btnCancelarEdicaoEl = document.getElementById("btn-cancelar-edicao");
+const btnVisibilidadeEl = document.getElementById("btn-visibilidade");
 const btnDadosEl = document.getElementById("btn-dados");
 const menuDadosEl = document.getElementById("menu-dados");
 const btnExportarEl = document.getElementById("btn-exportar");
@@ -49,6 +53,9 @@ let movimentacoes = Armazenamento.carregarMovimentacoes();
 
 // id da movimentação sendo editada; null quando o formulário está criando uma nova
 let idEmEdicao = null;
+
+// true = valores aparecem; false = aparecem como "R$ •••••"
+let valoresVisiveis = Armazenamento.carregarValoresVisiveis();
 
 // Guarda o timer do aviso para poder reiniciá-lo
 let timerAviso = null;
@@ -70,6 +77,7 @@ btnLimparTudoEl.addEventListener("click", limparTudo);
 listaEl.addEventListener("click", tratarCliqueNaLista);
 
 // Barra do topo
+btnVisibilidadeEl.addEventListener("click", alternarVisibilidade);
 btnDadosEl.addEventListener("click", alternarMenuDados);
 btnExportarEl.addEventListener("click", exportarDados);
 btnImportarEl.addEventListener("click", () => arquivoImportarEl.click());
@@ -77,6 +85,7 @@ arquivoImportarEl.addEventListener("change", importarDados);
 document.addEventListener("click", fecharMenuAoClicarFora);
 document.addEventListener("keydown", fecharMenuComEsc);
 
+aplicarVisibilidade();
 atualizarContador();
 atualizarTela();
 
@@ -232,10 +241,10 @@ function limparTudo() {
 function atualizarResumo() {
     const { entradas, saidas, saldo } = Regras.calcularResumo(movimentacoes);
 
-    saldoEl.textContent = Regras.formatarMoeda(saldo);
-    saldoEl.classList.toggle("negativo", saldo < 0);
-    totalEntradasEl.textContent = Regras.formatarMoeda(entradas);
-    totalSaidasEl.textContent = Regras.formatarMoeda(saidas);
+    saldoEl.textContent = exibirValor(saldo);
+    saldoEl.classList.toggle("negativo", saldo < 0 && valoresVisiveis);
+    totalEntradasEl.textContent = exibirValor(entradas);
+    totalSaidasEl.textContent = exibirValor(saidas);
 }
 
 // ---------- #19 Ver histórico ----------
@@ -281,7 +290,7 @@ function criarItemHistorico(mov) {
 
     const valor = document.createElement("span");
     valor.classList.add("movimentacao-valor");
-    valor.textContent = (ehEntrada ? "+ " : "- ") + Regras.formatarMoeda(mov.valor);
+    valor.textContent = (ehEntrada ? "+ " : "- ") + exibirValor(mov.valor);
 
     const acoes = document.createElement("div");
     acoes.classList.add("movimentacao-acoes");
@@ -318,6 +327,30 @@ function tratarCliqueNaLista(evento) {
     } else if (botao.dataset.acao === "excluir") {
         excluirMovimentacao(id);
     }
+}
+
+// ---------- Mostrar / ocultar valores (botão "olho") ----------
+
+function alternarVisibilidade() {
+    valoresVisiveis = !valoresVisiveis;
+    Armazenamento.salvarValoresVisiveis(valoresVisiveis);
+    aplicarVisibilidade();
+    atualizarResumo();
+    atualizarHistorico();
+}
+
+// Atualiza o botão (ícone, texto para leitor de tela) de acordo com o estado
+function aplicarVisibilidade() {
+    const rotulo = valoresVisiveis ? "Ocultar valores" : "Mostrar valores";
+    btnVisibilidadeEl.setAttribute("aria-pressed", String(!valoresVisiveis));
+    btnVisibilidadeEl.setAttribute("aria-label", rotulo);
+    btnVisibilidadeEl.title = rotulo;
+    document.body.classList.toggle("valores-ocultos", !valoresVisiveis);
+}
+
+// Valor formatado, ou "R$ •••••" se o olho estiver fechado
+function exibirValor(numero) {
+    return valoresVisiveis ? Regras.formatarMoeda(numero) : VALOR_OCULTO;
 }
 
 // ---------- Menu de exportar / importar ----------

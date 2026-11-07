@@ -124,6 +124,12 @@ body {
     border-color: var(--texto-forte);
 }
 
+/* Olho fechado = botão "apertado" */
+.btn-topbar[aria-pressed="true"] {
+    background-color: var(--texto-forte);
+    color: var(--laranja-escuro);
+}
+
 .btn-topbar[aria-expanded="true"] {
     background-color: #FFF;
 }
@@ -137,6 +143,19 @@ body {
     stroke-width: 2;
     stroke-linecap: round;
     stroke-linejoin: round;
+}
+
+/* Troca o ícone do olho conforme os valores estão visíveis ou não */
+.icone-olho-fechado {
+    display: none;
+}
+
+.valores-ocultos .icone-olho {
+    display: none;
+}
+
+.valores-ocultos .icone-olho-fechado {
+    display: block;
 }
 
 /* Menu de exportar / importar */
