@@ -10,7 +10,7 @@ const { describe, it } = require("node:test");
 const assert = require("node:assert/strict");
 const Regras = require("../js/regras.js");
 
-const { TIPO } = Regras;
+const { TIPO, FILTRO_SEM } = Regras;
 
 // Cria uma movimentação válida; cada teste muda só o campo que interessa
 function mov(campos = {}) {
@@ -194,6 +194,12 @@ describe("categorias e subcategorias", () => {
         assert.deepEqual(Regras.listarSubcategorias(lista, ""), []);
     });
 
+    it("sabe se existem movimentações sem categoria ou sem subcategoria", () => {
+        assert.equal(Regras.existeSemCategoria(lista), true);
+        assert.equal(Regras.existeSemSubcategoria(lista, "Alimentação"), true);
+        assert.equal(Regras.existeSemSubcategoria(lista, "Transporte"), false);
+    });
+
     it("reaproveita a grafia já existente, ignorando maiúsculas e minúsculas", () => {
         const dados = Regras.aplicarGrafiaExistente(lista, { categoria: "alimentação", subcategoria: "MERCADO" });
         assert.equal(dados.categoria, "Alimentação");
@@ -213,7 +219,7 @@ describe("categorias e subcategorias", () => {
     });
 });
 
-describe("histórico: ordenação", () => {
+describe("histórico: ordenação e filtros", () => {
     const lista = [
         mov({ id: 1, data: "2026-09-30", tipo: TIPO.ENTRADA, categoria: "Trabalho", subcategoria: "Salário" }),
         mov({ id: 2, data: "2026-10-05", tipo: TIPO.SAIDA, categoria: "Alimentação", subcategoria: "Mercado" }),
@@ -221,6 +227,7 @@ describe("histórico: ordenação", () => {
         mov({ id: 4, data: "2026-10-20", tipo: TIPO.SAIDA, categoria: "Transporte", subcategoria: "Uber" }),
         mov({ id: 5, data: "2026-10-21", tipo: TIPO.ENTRADA, categoria: "", subcategoria: "" })
     ];
+    const filtrar = (filtros) => ids(Regras.filtrarMovimentacoes(lista, filtros));
 
     it("ordena da data mais recente para a mais antiga; no mesmo dia, a registrada por último primeiro", () => {
         assert.deepEqual(ids(Regras.ordenarHistorico(lista)), [5, 4, 3, 2, 1]);
@@ -229,6 +236,43 @@ describe("histórico: ordenação", () => {
     it("ordenar não altera a lista original", () => {
         Regras.ordenarHistorico(lista);
         assert.deepEqual(ids(lista), [1, 2, 3, 4, 5]);
+    });
+
+    it("sem filtros, mostra tudo", () => {
+        assert.deepEqual(filtrar({}), [1, 2, 3, 4, 5]);
+    });
+
+    it("filtra por tipo e por mês", () => {
+        assert.deepEqual(filtrar({ tipo: TIPO.SAIDA }), [2, 3, 4]);
+        assert.deepEqual(filtrar({ mes: "2026-10" }), [2, 3, 4, 5]);
+    });
+
+    it("filtra por categoria e por 'Sem categoria'", () => {
+        assert.deepEqual(filtrar({ categoria: "Alimentação" }), [2, 3]);
+        assert.deepEqual(filtrar({ categoria: FILTRO_SEM }), [5]);
+    });
+
+    it("filtra por subcategoria e por 'Sem subcategoria' dentro da categoria", () => {
+        assert.deepEqual(filtrar({ categoria: "Alimentação", subcategoria: "Mercado" }), [2]);
+        assert.deepEqual(filtrar({ categoria: "Alimentação", subcategoria: FILTRO_SEM }), [3]);
+    });
+
+    it("ignora a subcategoria quando nenhuma categoria específica foi escolhida", () => {
+        assert.deepEqual(filtrar({ subcategoria: "Mercado" }), [1, 2, 3, 4, 5]);
+    });
+
+    it("combina filtros", () => {
+        assert.deepEqual(filtrar({ tipo: TIPO.SAIDA, mes: "2026-10", categoria: "Transporte" }), [4]);
+    });
+
+    it("filtroAtivo só é verdadeiro quando algum filtro foi escolhido", () => {
+        assert.equal(Regras.filtroAtivo({}), false);
+        assert.equal(Regras.filtroAtivo({ tipo: TIPO.SAIDA }), true);
+        assert.equal(Regras.filtroAtivo({ categoria: "Alimentação" }), true);
+    });
+
+    it("lista os meses em uso, do mais recente para o mais antigo", () => {
+        assert.deepEqual(Regras.listarMeses(lista), ["2026-10", "2026-09"]);
     });
 });
 
@@ -284,8 +328,9 @@ describe("formatação", () => {
         assert.equal(Regras.formatarMoeda(2400.2).replace(/\s/g, " "), "R$ 2.400,20");
     });
 
-    it("formata data em português", () => {
+    it("formata data e mês em português", () => {
         assert.equal(Regras.formatarData("2026-10-14"), "14/10/2026");
+        assert.equal(Regras.formatarMes("2026-10"), "Outubro de 2026");
     });
 
     it("dataISO usa o dia local, sem pular para o dia anterior", () => {

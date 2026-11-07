@@ -1,11 +1,11 @@
 /*
  * app.js
  * Lógica da interface: registrar movimentação (#17), consultar saldo (#18),
- * ver histórico (#19), editar e excluir (#20), categorias e subcategorias e limpar tudo.
+ * ver histórico (#19), editar e excluir (#20), categorias e subcategorias, filtros e limpar tudo.
  * Na barra do topo: mostrar/ocultar valores e exportar/importar os dados (#21).
  *
  * Este arquivo só cuida da tela (ler o formulário, desenhar a lista, reagir a cliques).
- * - As regras de negócio (validar, calcular, ordenar) ficam em regras.js.
+ * - As regras de negócio (validar, calcular, filtrar, ordenar) ficam em regras.js.
  * - O acesso aos dados fica em storage.js.
  */
 
@@ -13,7 +13,7 @@
 
 // ---------- Constantes ----------
 
-const { TIPO, LIMITES } = Regras;
+const { TIPO, LIMITES, FILTRO_TODOS, FILTRO_SEM } = Regras;
 
 // Texto mostrado no lugar dos valores quando o "olho" está fechado
 const VALOR_OCULTO = "R$ •••••";
@@ -28,7 +28,14 @@ const totalEntradasEl = document.getElementById("total-entradas");
 const totalSaidasEl = document.getElementById("total-saidas");
 const listaEl = document.getElementById("lista-movimentacoes");
 const historicoVazioEl = document.getElementById("historico-vazio");
+const totalFiltradoEl = document.getElementById("total-filtrado");
 const btnLimparTudoEl = document.getElementById("btn-limpar-tudo");
+const filtrosEl = document.getElementById("filtros");
+const filtroTipoEl = document.getElementById("filtro-tipo");
+const filtroMesEl = document.getElementById("filtro-mes");
+const filtroCategoriaEl = document.getElementById("filtro-categoria");
+const filtroSubcategoriaEl = document.getElementById("filtro-subcategoria");
+const btnLimparFiltrosEl = document.getElementById("btn-limpar-filtros");
 const formContainerEl = document.getElementById("form-container");
 const tituloFormEl = document.getElementById("titulo-form");
 const formEl = document.getElementById("form-movimentacao");
@@ -78,7 +85,15 @@ formEl.addEventListener("submit", registrarMovimentacao);
 descricaoEl.addEventListener("input", atualizarContador);
 btnCancelarEdicaoEl.addEventListener("click", cancelarEdicao);
 btnLimparTudoEl.addEventListener("click", limparTudo);
+filtroTipoEl.addEventListener("change", atualizarHistorico);
+filtroMesEl.addEventListener("change", atualizarHistorico);
+filtroCategoriaEl.addEventListener("change", () => {
+    atualizarOpcoesSubcategoria(); // a lista de subcategorias depende da categoria
+    atualizarHistorico();
+});
+filtroSubcategoriaEl.addEventListener("change", atualizarHistorico);
 categoriaEl.addEventListener("input", atualizarSugestoesSubcategoria);
+btnLimparFiltrosEl.addEventListener("click", limparFiltros);
 
 // Um único listener na lista cuida dos botões de todos os itens (delegação de eventos),
 // assim não é preciso usar onclick no HTML gerado
@@ -249,6 +264,7 @@ function limparTudo() {
     if (idEmEdicao !== null) {
         sairModoEdicao();
     }
+    resetarFiltros();
     atualizarTela();
 }
 
@@ -263,19 +279,106 @@ function atualizarResumo() {
     totalSaidasEl.textContent = exibirValor(saidas);
 }
 
-// ---------- #19 Ver histórico ----------
+// ---------- #19 Ver histórico (com filtros) ----------
 
 function atualizarHistorico() {
     listaEl.replaceChildren(); // limpa a lista
 
     const temMovimentacoes = movimentacoes.length > 0;
+    filtrosEl.hidden = !temMovimentacoes;
     btnLimparTudoEl.hidden = !temMovimentacoes;
 
-    const visiveis = Regras.ordenarHistorico(movimentacoes);
+    const filtros = lerFiltros();
+    const visiveis = Regras.ordenarHistorico(Regras.filtrarMovimentacoes(movimentacoes, filtros));
 
     visiveis.forEach((mov) => listaEl.appendChild(criarItemHistorico(mov)));
 
     historicoVazioEl.hidden = visiveis.length > 0;
+    historicoVazioEl.textContent = temMovimentacoes
+        ? "Nenhuma movimentação encontrada com esses filtros."
+        : "Nenhuma movimentação registrada ainda.";
+
+    atualizarTotalFiltrado(filtros, visiveis);
+}
+
+function lerFiltros() {
+    return {
+        tipo: filtroTipoEl.value,
+        mes: filtroMesEl.value,
+        categoria: filtroCategoriaEl.value,
+        subcategoria: filtroSubcategoriaEl.value
+    };
+}
+
+// Com algum filtro ativo, mostra o total só das movimentações que aparecem na lista.
+// O saldo do topo continua sendo o geral.
+function atualizarTotalFiltrado(filtros, visiveis) {
+    const ativo = Regras.filtroAtivo(filtros);
+    btnLimparFiltrosEl.hidden = !ativo;
+
+    if (!ativo || visiveis.length === 0) {
+        totalFiltradoEl.hidden = true;
+        return;
+    }
+
+    const { saldo } = Regras.calcularResumo(visiveis);
+    const quantidade = `${visiveis.length} ${visiveis.length === 1 ? "movimentação" : "movimentações"}`;
+    totalFiltradoEl.textContent = `Total no filtro: ${exibirValor(saldo)} (${quantidade})`;
+    totalFiltradoEl.hidden = false;
+}
+
+// Recria as opções do filtro de mês com os meses que têm movimentação
+function atualizarOpcoesMes() {
+    const selecionado = filtroMesEl.value;
+    const meses = Regras.listarMeses(movimentacoes);
+    filtroMesEl.replaceChildren(
+        new Option("Todos os meses", FILTRO_TODOS.MES),
+        ...meses.map((anoMes) => new Option(Regras.formatarMes(anoMes), anoMes))
+    );
+    // Mantém o mês escolhido, se ele ainda existir
+    filtroMesEl.value = meses.includes(selecionado) ? selecionado : FILTRO_TODOS.MES;
+}
+
+// Recria as opções do filtro de categoria com as categorias usadas
+function atualizarOpcoesCategoria() {
+    const selecionada = filtroCategoriaEl.value;
+
+    const opcoes = [
+        new Option("Todas", FILTRO_TODOS.CATEGORIA),
+        ...Regras.listarCategorias(movimentacoes).map((cat) => new Option(cat, cat))
+    ];
+    if (Regras.existeSemCategoria(movimentacoes)) {
+        opcoes.push(new Option("Sem categoria", FILTRO_SEM));
+    }
+    filtroCategoriaEl.replaceChildren(...opcoes);
+    manterSelecao(filtroCategoriaEl, opcoes, selecionada, FILTRO_TODOS.CATEGORIA);
+
+    atualizarOpcoesSubcategoria();
+}
+
+// Subcategorias da categoria escolhida no filtro (desativado se nenhuma categoria específica)
+function atualizarOpcoesSubcategoria() {
+    const selecionada = filtroSubcategoriaEl.value;
+    const categoria = filtroCategoriaEl.value;
+    const especifica = Regras.categoriaEspecifica(categoria);
+
+    const opcoes = [new Option("Todas", FILTRO_TODOS.SUBCATEGORIA)];
+    if (especifica) {
+        Regras.listarSubcategorias(movimentacoes, categoria)
+            .forEach((sub) => opcoes.push(new Option(sub, sub)));
+        if (Regras.existeSemSubcategoria(movimentacoes, categoria)) {
+            opcoes.push(new Option("Sem subcategoria", FILTRO_SEM));
+        }
+    }
+    filtroSubcategoriaEl.replaceChildren(...opcoes);
+    filtroSubcategoriaEl.disabled = !especifica;
+    manterSelecao(filtroSubcategoriaEl, opcoes, selecionada, FILTRO_TODOS.SUBCATEGORIA);
+}
+
+// Mantém a opção que estava escolhida, se ela ainda existir; senão volta para "Todas"
+function manterSelecao(select, opcoes, selecionada, padrao) {
+    const valores = opcoes.map((opcao) => opcao.value);
+    select.value = valores.includes(selecionada) ? selecionada : padrao;
 }
 
 // Sugestões que aparecem ao digitar no campo de categoria do formulário
@@ -295,6 +398,18 @@ function atualizarSugestoesSubcategoria() {
     sugestoesSubcategoriaEl.replaceChildren(
         ...Regras.listarSubcategorias(movimentacoes, categoria).map((sub) => new Option(sub))
     );
+}
+
+function limparFiltros() {
+    resetarFiltros();
+    atualizarHistorico();
+}
+
+function resetarFiltros() {
+    filtroTipoEl.value = FILTRO_TODOS.TIPO;
+    filtroMesEl.value = FILTRO_TODOS.MES;
+    filtroCategoriaEl.value = FILTRO_TODOS.CATEGORIA;
+    atualizarOpcoesSubcategoria();
 }
 
 // Monta o item com textContent (nunca innerHTML) para o texto digitado
@@ -512,6 +627,7 @@ async function importarDados() {
     if (idEmEdicao !== null) {
         sairModoEdicao();
     }
+    resetarFiltros();
     atualizarTela();
 
     let mensagem = `${textoImportadas} ${qtdImportadas === 1 ? "importada" : "importadas"}.`;
@@ -539,6 +655,8 @@ function mostrarAviso(mensagem, tipo = "sucesso") {
 
 function atualizarTela() {
     atualizarResumo();
+    atualizarOpcoesMes();
+    atualizarOpcoesCategoria();
     atualizarSugestoesCategoria();
     atualizarHistorico();
 }

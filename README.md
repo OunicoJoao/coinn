@@ -16,6 +16,7 @@ Versão atual: **MVP ampliado (Sprint 4)**
 - **Exportar e importar** (#21): cópia de segurança em arquivo `.json`
 - **Ocultar valores** (#56): botão de olho para usar o Coinn em público
 - **Categorias e subcategorias** (#57): texto livre e opcional (ex.: Alimentação › Mercado), com sugestões do que já foi usado
+- **Filtros do histórico** (#58): por tipo, mês, categoria e subcategoria, combináveis, com o total do período filtrado
 
 ## Como executar
 

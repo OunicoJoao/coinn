@@ -1,6 +1,6 @@
 /*
  * regras.js
- * Regras de negócio do Coinn: validação, cálculos, categorias, ordenação,
+ * Regras de negócio do Coinn: validação, cálculos, categorias, filtros, ordenação,
  * importação/exportação e formatação.
  *
  * Tudo aqui é função pura: recebe dados e devolve um resultado, sem mexer
@@ -36,9 +36,27 @@ const Regras = (function () {
         VALOR_MAX: 999999.99
     });
 
+    // Valores "sem filtro" dos selects do histórico.
+    // Categoria e subcategoria usam um texto que ninguém digitaria,
+    // para não confundir com uma categoria real chamada "todas".
+    const FILTRO_TODOS = Object.freeze({
+        TIPO: "todas",
+        MES: "todos",
+        CATEGORIA: "__todas__",
+        SUBCATEGORIA: "__todas__"
+    });
+
+    // Valor do filtro para "Sem categoria" / "Sem subcategoria"
+    const FILTRO_SEM = "__sem__";
+
     // Versão do formato do arquivo exportado.
     // v1: sem categoria | v2: com categoria e subcategoria (arquivos v1 continuam aceitos)
     const VERSAO_EXPORTACAO = 2;
+
+    const NOMES_MESES = [
+        "Janeiro", "Fevereiro", "Março", "Abril", "Maio", "Junho",
+        "Julho", "Agosto", "Setembro", "Outubro", "Novembro", "Dezembro"
+    ];
 
     // ---------- Valores, textos e datas ----------
 
@@ -142,6 +160,14 @@ const Regras = (function () {
         );
     }
 
+    function existeSemCategoria(lista) {
+        return lista.some((mov) => !mov.categoria);
+    }
+
+    function existeSemSubcategoria(lista, categoria) {
+        return lista.some((mov) => mov.categoria === categoria && !mov.subcategoria);
+    }
+
     // Se o texto já existe com outra combinação de maiúsculas/minúsculas, usa a versão existente
     function usarGrafiaExistente(texto, existentes) {
         if (!texto) return "";
@@ -211,7 +237,52 @@ const Regras = (function () {
         };
     }
 
-    // ---------- #19 Histórico: ordenação ----------
+    // ---------- #19 Histórico: filtros e ordenação ----------
+
+    // Filtro que não foi informado vale como "todos"
+    function completarFiltros(filtros = {}) {
+        return {
+            tipo: filtros.tipo ?? FILTRO_TODOS.TIPO,
+            mes: filtros.mes ?? FILTRO_TODOS.MES,
+            categoria: filtros.categoria ?? FILTRO_TODOS.CATEGORIA,
+            subcategoria: filtros.subcategoria ?? FILTRO_TODOS.SUBCATEGORIA
+        };
+    }
+
+    // A subcategoria só vale quando uma categoria específica foi escolhida
+    function categoriaEspecifica(categoria) {
+        return categoria !== FILTRO_TODOS.CATEGORIA && categoria !== FILTRO_SEM;
+    }
+
+    function passaNosFiltros(mov, { tipo, mes, categoria, subcategoria }) {
+        if (tipo !== FILTRO_TODOS.TIPO && mov.tipo !== tipo) return false;
+        if (mes !== FILTRO_TODOS.MES && !mov.data.startsWith(mes)) return false;
+
+        if (categoria === FILTRO_SEM) {
+            return !mov.categoria;
+        }
+        if (!categoriaEspecifica(categoria)) {
+            return true;
+        }
+        if (mov.categoria !== categoria) return false;
+
+        if (subcategoria === FILTRO_SEM) return !mov.subcategoria;
+        if (subcategoria !== FILTRO_TODOS.SUBCATEGORIA) return mov.subcategoria === subcategoria;
+        return true;
+    }
+
+    function filtrarMovimentacoes(lista, filtros) {
+        const completos = completarFiltros(filtros);
+        return lista.filter((mov) => passaNosFiltros(mov, completos));
+    }
+
+    function filtroAtivo(filtros) {
+        const { tipo, mes, categoria, subcategoria } = completarFiltros(filtros);
+        return tipo !== FILTRO_TODOS.TIPO
+            || mes !== FILTRO_TODOS.MES
+            || categoria !== FILTRO_TODOS.CATEGORIA
+            || (categoriaEspecifica(categoria) && subcategoria !== FILTRO_TODOS.SUBCATEGORIA);
+    }
 
     // Mais recente primeiro: ordena pela data e, no mesmo dia, pela ordem de registro (id)
     function ordenarHistorico(lista) {
@@ -219,6 +290,11 @@ const Regras = (function () {
             if (a.data !== b.data) return a.data < b.data ? 1 : -1;
             return b.id - a.id;
         });
+    }
+
+    // Meses ("AAAA-MM") que têm movimentação, do mais recente para o mais antigo
+    function listarMeses(lista) {
+        return [...new Set(lista.map((mov) => mov.data.slice(0, 7)))].sort().reverse();
     }
 
     // ---------- Exportar e importar ----------
@@ -301,6 +377,12 @@ const Regras = (function () {
         return `${dia}/${mes}/${ano}`;
     }
 
+    // "2026-10" -> "Outubro de 2026"
+    function formatarMes(anoMes) {
+        const [ano, mes] = anoMes.split("-");
+        return `${NOMES_MESES[Number(mes) - 1]} de ${ano}`;
+    }
+
     // Data no fuso do usuário, no formato "AAAA-MM-DD"
     function dataISO(data) {
         const mes = String(data.getMonth() + 1).padStart(2, "0");
@@ -313,12 +395,16 @@ const Regras = (function () {
     return Object.freeze({
         TIPO,
         LIMITES,
+        FILTRO_TODOS,
+        FILTRO_SEM,
         arredondarCentavos,
         dataValida,
         validarMovimentacao,
         normalizarMovimentacao,
         listarCategorias,
         listarSubcategorias,
+        existeSemCategoria,
+        existeSemSubcategoria,
         usarGrafiaExistente,
         aplicarGrafiaExistente,
         rotuloCategoria,
@@ -326,11 +412,16 @@ const Regras = (function () {
         editarMovimentacao,
         excluirMovimentacao,
         calcularResumo,
+        categoriaEspecifica,
+        filtrarMovimentacoes,
+        filtroAtivo,
         ordenarHistorico,
+        listarMeses,
         montarExportacao,
         lerMovimentacoesImportadas,
         formatarMoeda,
         formatarData,
+        formatarMes,
         dataISO
     });
 })();
