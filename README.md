@@ -12,6 +12,7 @@ Versão atual: **MVP ampliado (Sprint 4)**
 - **Consultar saldo** (#18): saldo atual, total de entradas e total de saídas
 - **Ver histórico** (#19): lista da movimentação mais recente para a mais antiga
 - **Editar e excluir** (#20): com confirmação antes de excluir
+- **Limpar tudo** (#59): apaga todas as movimentações, com confirmação
 
 Próximas versões:
 
@@ -50,12 +51,6 @@ As movimentações ficam salvas no **localStorage** do navegador, na chave `coin
 - os dados ficam apenas no computador e no navegador de quem usa;
 - nada é enviado para a internet;
 - limpar os dados de navegação, ou usar outro navegador, faz os dados não aparecerem.
-
-Para apagar os dados durante os testes, abra o console do navegador (F12) e rode:
-
-```js
-localStorage.removeItem("coinn.movimentacoes")
-```
 
 ### Modelo de dados
 
