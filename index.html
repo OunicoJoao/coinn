@@ -116,6 +116,44 @@
                     <button type="button" id="btn-limpar-tudo" class="btn-limpar" hidden>Limpar tudo</button>
                 </div>
 
+                <!-- Filtros do histórico (não alteram o saldo, só o que aparece na lista) -->
+                <div id="filtros" class="filtros" hidden>
+                    <div class="filtro">
+                        <label for="filtro-tipo">Tipo</label>
+                        <select id="filtro-tipo">
+                            <option value="todas">Todas</option>
+                            <option value="entrada">Entradas</option>
+                            <option value="saida">Saídas</option>
+                        </select>
+                    </div>
+                    <div class="filtro">
+                        <label for="filtro-mes">Mês</label>
+                        <select id="filtro-mes">
+                            <!--Opções de mês adicionadas via Javascript-->
+                            <option value="todos">Todos os meses</option>
+                        </select>
+                    </div>
+                    <div class="filtro">
+                        <label for="filtro-categoria">Categoria</label>
+                        <select id="filtro-categoria">
+                            <!--Opções de categoria adicionadas via Javascript (só as que estão em uso)-->
+                        </select>
+                    </div>
+                    <div class="filtro">
+                        <label for="filtro-subcategoria">Subcategoria</label>
+                        <!-- Só fica ativo depois de escolher uma categoria -->
+                        <select id="filtro-subcategoria" disabled>
+                            <!--Opções de subcategoria adicionadas via Javascript-->
+                        </select>
+                    </div>
+                </div>
+
+                <!-- Total das movimentações filtradas (só aparece com algum filtro ativo) -->
+                <div class="filtro-resumo">
+                    <p id="total-filtrado" class="total-filtrado" aria-live="polite" hidden></p>
+                    <button type="button" id="btn-limpar-filtros" class="btn-link" hidden>Limpar filtros</button>
+                </div>
+
                 <p id="historico-vazio" class="historico-vazio">Nenhuma movimentação registrada ainda.</p>
                 <!--Movimentações adicionadas aqui via Javascript-->
                 <ul id="lista-movimentacoes"></ul>
