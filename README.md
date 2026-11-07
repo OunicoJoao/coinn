@@ -13,10 +13,7 @@ Versão atual: **MVP ampliado (Sprint 4)**
 - **Ver histórico** (#19): lista da movimentação mais recente para a mais antiga
 - **Editar e excluir** (#20): com confirmação antes de excluir
 - **Limpar tudo** (#59): apaga todas as movimentações, com confirmação
-
-Próximas versões:
-
-- Exportar relatório e fazer backup dos dados (#21)
+- **Exportar e importar** (#21): cópia de segurança em arquivo `.json`
 
 ## Como executar
 
@@ -50,7 +47,7 @@ As movimentações ficam salvas no **localStorage** do navegador, na chave `coin
 
 - os dados ficam apenas no computador e no navegador de quem usa;
 - nada é enviado para a internet;
-- limpar os dados de navegação, ou usar outro navegador, faz os dados não aparecerem.
+- limpar os dados de navegação, ou usar outro navegador, faz os dados não aparecerem. Use **Exportar dados** para guardar uma cópia.
 
 ### Modelo de dados
 

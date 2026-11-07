@@ -1,6 +1,7 @@
 /*
  * regras.js
- * Regras de negócio do Coinn: validação, cálculos, ordenação e formatação.
+ * Regras de negócio do Coinn: validação, cálculos, ordenação,
+ * importação/exportação e formatação.
  *
  * Tudo aqui é função pura: recebe dados e devolve um resultado, sem mexer
  * na tela (DOM) nem no localStorage. Por isso essas regras podem ser testadas
@@ -31,6 +32,9 @@ const Regras = (function () {
         VALOR_MAX: 999999.99
     });
 
+    // Versão do formato do arquivo exportado (ajuda se o formato mudar no futuro)
+    const VERSAO_EXPORTACAO = 1;
+
     // ---------- Valores, textos e datas ----------
 
     // Arredonda para 2 casas decimais (centavos)
@@ -59,7 +63,7 @@ const Regras = (function () {
     // ---------- Validação ----------
 
     // Retorna uma mensagem de erro, ou null se os dados estiverem válidos.
-    // Usada pelo formulário (registrar e editar).
+    // Usada pelo formulário (registrar e editar) e pela importação.
     function validarMovimentacao({ tipo, valor, data, descricao }) {
         if (tipo !== TIPO.ENTRADA && tipo !== TIPO.SAIDA) {
             return "Escolha se é uma entrada ou uma saída.";
@@ -145,6 +149,63 @@ const Regras = (function () {
         });
     }
 
+    // ---------- Exportar e importar ----------
+
+    function montarExportacao(lista, exportadoEm) {
+        return {
+            app: "coinn",
+            versao: VERSAO_EXPORTACAO,
+            exportadoEm,
+            movimentacoes: lista
+        };
+    }
+
+    // Confere o conteúdo do arquivo e devolve { lista, ignoradas } ou { erro }.
+    // Aceita o formato exportado pela Coinn ({ movimentacoes: [...] }) ou só a lista.
+    function lerMovimentacoesImportadas(conteudo, gerarId) {
+        const itens = Array.isArray(conteudo) ? conteudo : conteudo?.movimentacoes;
+        if (!Array.isArray(itens)) {
+            return { erro: "Arquivo não reconhecido. Use um arquivo exportado pela Coinn." };
+        }
+
+        const lista = [];
+        const idsUsados = new Set();
+        let ignoradas = 0;
+
+        itens.forEach((item, indice) => {
+            const dados = {
+                tipo: item?.tipo,
+                valor: Number(item?.valor),
+                data: item?.data,
+                descricao: textoLimpo(item?.descricao)
+            };
+
+            // Reaproveita a mesma validação do formulário
+            if (validarMovimentacao(dados) !== null) {
+                ignoradas++;
+                return;
+            }
+
+            // Mantém o id original; cria outro se faltar ou se estiver repetido
+            let id = Number(item.id);
+            if (!Number.isFinite(id) || idsUsados.has(id)) {
+                id = gerarId(indice);
+            }
+            idsUsados.add(id);
+
+            const movimentacao = { id, ...normalizarCampos(dados) };
+            if (typeof item.dataModificacao === "string") {
+                movimentacao.dataModificacao = item.dataModificacao;
+            }
+            lista.push(movimentacao);
+        });
+
+        if (lista.length === 0) {
+            return { erro: "Nenhuma movimentação válida encontrada no arquivo." };
+        }
+        return { lista, ignoradas };
+    }
+
     // ---------- Formatação ----------
 
     const formatadorMoeda = new Intl.NumberFormat("pt-BR", {
@@ -183,6 +244,8 @@ const Regras = (function () {
         excluirMovimentacao,
         calcularResumo,
         ordenarHistorico,
+        montarExportacao,
+        lerMovimentacoesImportadas,
         formatarMoeda,
         formatarData,
         dataISO

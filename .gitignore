@@ -123,3 +123,6 @@ Thumbs.db
 
 # Resultado dos testes gerado pelo pipeline
 resultados-testes.xml
+
+# Arquivos de backup exportados durante os testes
+coinn-movimentacoes-*.json

@@ -159,6 +159,35 @@ describe("histórico: ordenação", () => {
     });
 });
 
+describe("importação", () => {
+    const gerarId = (indice) => 1000 + indice;
+
+    it("recusa arquivo que não tem lista de movimentações", () => {
+        assert.ok(Regras.lerMovimentacoesImportadas({ outra: "coisa" }, gerarId).erro);
+        assert.ok(Regras.lerMovimentacoesImportadas(null, gerarId).erro);
+    });
+
+    it("importa o formato exportado pela Coinn e ignora itens inválidos", () => {
+        const conteudo = Regras.montarExportacao([
+            mov({ id: 1 }),
+            mov({ id: 2, valor: -5 }),
+            mov({ id: 3, data: "2026-13-45" })
+        ], "2026-10-28T12:00:00.000Z");
+
+        const resultado = Regras.lerMovimentacoesImportadas(conteudo, gerarId);
+        assert.deepEqual(ids(resultado.lista), [1]);
+        assert.equal(resultado.ignoradas, 2);
+    });
+
+    it("cria um id novo quando o id falta ou está repetido", () => {
+        const resultado = Regras.lerMovimentacoesImportadas(
+            [mov({ id: 7 }), mov({ id: 7 }), mov({ id: undefined })],
+            gerarId
+        );
+        assert.deepEqual(ids(resultado.lista), [7, 1001, 1002]);
+    });
+});
+
 describe("formatação", () => {
     it("formata moeda em real", () => {
         // O Intl usa um espaço especial (não quebrável) entre "R$" e o número

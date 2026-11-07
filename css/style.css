@@ -22,43 +22,220 @@
     box-sizing: border-box;
 }
 
+/* Garante que elementos com o atributo hidden somem mesmo tendo display definido no CSS */
+[hidden] {
+    display: none !important;
+}
+
 body {
     background: #FFF;
     min-height: 100vh;
     font-family: "Poppins", sans-serif;
     display: flex;
+    flex-direction: column;
     align-items: center;
-    justify-content: center;
-    padding: 20px;
+    padding-bottom: 20px;
     color: var(--texto);
 }
 
 .container {
-    width: 100%;
+    width: calc(100% - 40px);
     max-width: 1200px;
+    margin-top: 24px;
     background-color: #d6d6d6;
     padding: 2rem;
     border-radius: 24px;
     box-shadow: 0 12px 24px rgba(0, 0, 0, 0.15);
 }
 
+/* ---------- Barra do topo ---------- */
 
-.logo{
+.topbar {
+    width: 100%;
+    background-color: var(--laranja-escuro);
+    box-shadow: 0 2px 10px rgba(0, 0, 0, 0.12);
+    position: sticky; /* continua visível ao rolar a página */
+    top: 0;
+    z-index: 10;
+}
+
+.topbar-conteudo {
+    max-width: 1200px;
+    margin: 0 auto;
+    padding: 12px 20px;
     display: flex;
     align-items: center;
-    justify-content: center;
-    gap: 12px;
-    margin-bottom: 35px;
+    justify-content: space-between;
+    gap: 16px;
 }
 
-.logo-icone{
-    width: 44px;
-    height: 44px;
+.logo {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    text-decoration: none;
 }
 
-h1 {
+.logo-icone {
+    width: 40px;
+    height: 40px;
+}
+
+.logo h1 {
     margin-bottom: 0;
+    font-size: 1.6rem;
+    font-weight: 600;
+    color: var(--texto-forte);
+}
+
+.topbar-acoes {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+}
+
+.btn-topbar {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    min-width: 42px;
+    height: 42px;
+    padding: 0 10px;
+    border: 2px solid transparent;
+    border-radius: 10px;
+    background-color: rgba(255, 255, 255, 0.75);
+    color: var(--texto-forte);
+    font-family: inherit;
+    font-size: 0.95rem;
+    font-weight: 500;
+    cursor: pointer;
+    transition: all 0.2s ease;
+}
+
+.btn-topbar:hover {
+    background-color: #FFF;
+    transform: translateY(-1px);
+    box-shadow: 0 4px 10px rgba(0, 0, 0, 0.12);
+}
+
+.btn-topbar:focus-visible {
+    outline: none;
+    border-color: var(--texto-forte);
+}
+
+.btn-topbar[aria-expanded="true"] {
+    background-color: #FFF;
+}
+
+.icone {
+    width: 20px;
+    height: 20px;
+    flex-shrink: 0;
+    fill: none;
+    stroke: currentColor;
+    stroke-width: 2;
+    stroke-linecap: round;
+    stroke-linejoin: round;
+}
+
+/* Menu de exportar / importar */
+.menu-dados {
+    position: relative;
+}
+
+.menu-dados-lista {
+    position: absolute;
+    top: calc(100% + 8px);
+    right: 0;
+    width: 290px;
+    max-width: calc(100vw - 24px);
+    display: flex;
+    flex-direction: column;
+    padding: 6px;
+    background-color: #FFF;
+    border-radius: 12px;
+    box-shadow: 0 10px 28px rgba(0, 0, 0, 0.18);
+    z-index: 20;
+    animation: abrirMenu 0.15s ease;
+}
+
+@keyframes abrirMenu {
+    from {
+        opacity: 0;
+        transform: translateY(-6px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+.menu-item {
+    display: flex;
+    align-items: flex-start;
+    gap: 12px;
+    width: 100%;
+    padding: 10px 12px;
+    border: none;
+    border-radius: 8px;
+    background: none;
+    color: var(--texto-forte);
+    font-family: inherit;
+    font-size: 0.95rem;
+    font-weight: 500;
+    text-align: left;
+    cursor: pointer;
+    transition: background-color 0.2s ease;
+}
+
+.menu-item .icone {
+    margin-top: 2px;
+}
+
+.menu-item small {
+    display: block;
+    color: var(--texto-suave);
+    font-size: 0.8rem;
+    font-weight: 400;
+}
+
+.menu-item:hover,
+.menu-item:focus-visible {
+    background-color: #FFF6DB;
+    outline: none;
+}
+
+/* Aviso rápido no rodapé da tela */
+.aviso {
+    position: fixed;
+    bottom: 24px;
+    left: 50%;
+    transform: translateX(-50%);
+    max-width: calc(100% - 32px);
+    padding: 12px 20px;
+    border-radius: 10px;
+    background-color: var(--texto-forte);
     color: #FFF;
+    font-size: 0.95rem;
+    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.2);
+    z-index: 30;
+    animation: subirAviso 0.25s ease;
+}
+
+.aviso.erro {
+    background-color: #991B1B;
+}
+
+@keyframes subirAviso {
+    from {
+        opacity: 0;
+        transform: translate(-50%, 10px);
+    }
+    to {
+        opacity: 1;
+        transform: translate(-50%, 0);
+    }
 }
 
 h2 {
@@ -571,11 +748,31 @@ button[type="submit"]:active {
 
 @media (max-width: 480px) {
     body {
-        padding: 12px;
+        padding-bottom: 12px;
     }
 
     .container {
+        width: calc(100% - 24px);
+        margin-top: 16px;
         padding: 20px;
+    }
+
+    .topbar-conteudo {
+        padding: 10px 12px;
+    }
+
+    .logo-icone {
+        width: 34px;
+        height: 34px;
+    }
+
+    .logo h1 {
+        font-size: 1.4rem;
+    }
+
+    /* No celular o botão de dados fica só com o ícone */
+    .btn-dados-texto {
+        display: none;
     }
 
     .resumo {
@@ -596,7 +793,4 @@ button[type="submit"]:active {
         padding: 14px 16px;
     }
 
-    h1 {
-        font-size: 1.8rem;
-    }
 }
