@@ -17,13 +17,59 @@
     <script src="js/app.js" defer></script>
 </head>
 <body>
-    <main class="container">
+    <!-- Barra do topo: logo à esquerda, ações à direita -->
+    <header class="topbar">
+        <div class="topbar-conteudo">
 
-        <!--logo da coinn-->
-        <div class="logo">
-            <img src="./img/real-brasileiro.png" alt="logo-icone" class="logo-icone">
-            <h1>Coinn</h1>
+            <!--logo da coinn-->
+            <a href="./index.html" class="logo" aria-label="Coinn, página inicial">
+                <img src="./img/real-brasileiro.png" alt="" class="logo-icone">
+                <h1>Coinn</h1>
+            </a>
+
+            <div class="topbar-acoes">
+                <!-- Exportar / importar dados -->
+                <div class="menu-dados">
+                    <button type="button" id="btn-dados" class="btn-topbar btn-dados"
+                            aria-haspopup="true" aria-expanded="false" aria-controls="menu-dados"
+                            title="Exportar ou importar dados">
+                        <svg class="icone" viewBox="0 0 24 24" aria-hidden="true">
+                            <path d="M7 4v16"/><path d="M3 8l4-4 4 4"/>
+                            <path d="M17 20V4"/><path d="M21 16l-4 4-4-4"/>
+                        </svg>
+                        <span class="btn-dados-texto">Exportar / Importar</span>
+                    </button>
+
+                    <div id="menu-dados" class="menu-dados-lista" hidden>
+                        <button type="button" id="btn-exportar" class="menu-item">
+                            <svg class="icone" viewBox="0 0 24 24" aria-hidden="true">
+                                <path d="M12 3v12"/><path d="M7 10l5 5 5-5"/><path d="M4 21h16"/>
+                            </svg>
+                            <span>
+                                Exportar dados
+                                <small>Baixa um arquivo .json com suas movimentações</small>
+                            </span>
+                        </button>
+                        <button type="button" id="btn-importar" class="menu-item">
+                            <svg class="icone" viewBox="0 0 24 24" aria-hidden="true">
+                                <path d="M12 15V3"/><path d="M7 8l5-5 5 5"/><path d="M4 21h16"/>
+                            </svg>
+                            <span>
+                                Importar dados
+                                <small>Carrega um arquivo exportado pela Coinn</small>
+                            </span>
+                        </button>
+                    </div>
+
+                    <!-- Escondido: aberto pelo botão "Importar dados" -->
+                    <input type="file" id="arquivo-importar" accept=".json,application/json" hidden>
+                </div>
+            </div>
+
         </div>
+    </header>
+
+    <main class="container">
 
         <!-- #18 Consultar saldo -->
         <section class="saldo-container" aria-label="Resumo">
@@ -110,5 +156,8 @@
 
         </div>
     </main>
+
+    <!-- Aviso rápido (ex.: "Dados exportados") -->
+    <div id="aviso" class="aviso" role="status" aria-live="polite" hidden></div>
 </body>
 </html>

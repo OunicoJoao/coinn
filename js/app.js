@@ -2,6 +2,7 @@
  * app.js
  * Lógica da interface: registrar movimentação (#17), consultar saldo (#18),
  * ver histórico (#19), editar e excluir (#20) e limpar tudo.
+ * Na barra do topo: exportar/importar os dados (#21).
  *
  * Este arquivo só cuida da tela (ler o formulário, desenhar a lista, reagir a cliques).
  * - As regras de negócio (validar, calcular, ordenar) ficam em regras.js.
@@ -13,6 +14,9 @@
 // ---------- Constantes ----------
 
 const { TIPO, LIMITES } = Regras;
+
+// Tempo que o aviso rápido fica na tela
+const DURACAO_AVISO_MS = 3500;
 
 // ---------- Elementos da página ----------
 
@@ -32,6 +36,12 @@ const dataEl = document.getElementById("data");
 const erroEl = document.getElementById("mensagem-erro");
 const btnRegistrarEl = document.getElementById("btn-registrar");
 const btnCancelarEdicaoEl = document.getElementById("btn-cancelar-edicao");
+const btnDadosEl = document.getElementById("btn-dados");
+const menuDadosEl = document.getElementById("menu-dados");
+const btnExportarEl = document.getElementById("btn-exportar");
+const btnImportarEl = document.getElementById("btn-importar");
+const arquivoImportarEl = document.getElementById("arquivo-importar");
+const avisoEl = document.getElementById("aviso");
 
 // ---------- Estado ----------
 
@@ -39,6 +49,9 @@ let movimentacoes = Armazenamento.carregarMovimentacoes();
 
 // id da movimentação sendo editada; null quando o formulário está criando uma nova
 let idEmEdicao = null;
+
+// Guarda o timer do aviso para poder reiniciá-lo
+let timerAviso = null;
 
 // ---------- Inicialização ----------
 
@@ -55,6 +68,14 @@ btnLimparTudoEl.addEventListener("click", limparTudo);
 // Um único listener na lista cuida dos botões de todos os itens (delegação de eventos),
 // assim não é preciso usar onclick no HTML gerado
 listaEl.addEventListener("click", tratarCliqueNaLista);
+
+// Barra do topo
+btnDadosEl.addEventListener("click", alternarMenuDados);
+btnExportarEl.addEventListener("click", exportarDados);
+btnImportarEl.addEventListener("click", () => arquivoImportarEl.click());
+arquivoImportarEl.addEventListener("change", importarDados);
+document.addEventListener("click", fecharMenuAoClicarFora);
+document.addEventListener("keydown", fecharMenuComEsc);
 
 atualizarContador();
 atualizarTela();
@@ -188,7 +209,10 @@ function limparTudo() {
 
     const quantidade = movimentacoes.length;
     const texto = quantidade === 1 ? "a movimentação registrada" : `as ${quantidade} movimentações registradas`;
-    const confirmou = confirm(`Apagar ${texto}? Essa ação não pode ser desfeita.`);
+    const confirmou = confirm(
+        `Apagar ${texto}? Essa ação não pode ser desfeita.\n\n` +
+        "Dica: use \"Exportar dados\" antes, para guardar uma cópia de segurança."
+    );
     if (!confirmou) return;
 
     if (!Armazenamento.removerTodasMovimentacoes()) {
@@ -294,6 +318,139 @@ function tratarCliqueNaLista(evento) {
     } else if (botao.dataset.acao === "excluir") {
         excluirMovimentacao(id);
     }
+}
+
+// ---------- Menu de exportar / importar ----------
+
+function alternarMenuDados() {
+    if (menuDadosEl.hidden) {
+        abrirMenuDados();
+    } else {
+        fecharMenuDados();
+    }
+}
+
+function abrirMenuDados() {
+    menuDadosEl.hidden = false;
+    btnDadosEl.setAttribute("aria-expanded", "true");
+    btnExportarEl.focus();
+}
+
+function fecharMenuDados() {
+    menuDadosEl.hidden = true;
+    btnDadosEl.setAttribute("aria-expanded", "false");
+}
+
+function fecharMenuAoClicarFora(evento) {
+    if (menuDadosEl.hidden) return;
+    if (!evento.target.closest(".menu-dados")) fecharMenuDados();
+}
+
+function fecharMenuComEsc(evento) {
+    if (evento.key === "Escape" && !menuDadosEl.hidden) {
+        fecharMenuDados();
+        btnDadosEl.focus();
+    }
+}
+
+// ---------- #21 Exportar dados ----------
+
+// Gera um arquivo .json com todas as movimentações e faz o download
+function exportarDados() {
+    fecharMenuDados();
+
+    if (movimentacoes.length === 0) {
+        mostrarAviso("Não há movimentações para exportar.", "erro");
+        return;
+    }
+
+    const conteudo = Regras.montarExportacao(movimentacoes, new Date().toISOString());
+    const arquivo = new Blob([JSON.stringify(conteudo, null, 2)], { type: "application/json" });
+    const url = URL.createObjectURL(arquivo);
+
+    // Cria um link temporário só para disparar o download
+    const link = document.createElement("a");
+    link.href = url;
+    link.download = `coinn-movimentacoes-${hoje()}.json`;
+    document.body.appendChild(link);
+    link.click();
+    link.remove();
+    URL.revokeObjectURL(url);
+
+    const quantidade = movimentacoes.length;
+    mostrarAviso(`${quantidade} ${quantidade === 1 ? "movimentação exportada" : "movimentações exportadas"}.`);
+}
+
+// ---------- #21 Importar dados ----------
+
+async function importarDados() {
+    fecharMenuDados();
+
+    const arquivo = arquivoImportarEl.files[0];
+    arquivoImportarEl.value = ""; // permite escolher o mesmo arquivo de novo depois
+    if (!arquivo) return;
+
+    let conteudo;
+    try {
+        conteudo = JSON.parse(await arquivo.text());
+    } catch {
+        mostrarAviso("Esse arquivo não é um JSON válido.", "erro");
+        return;
+    }
+
+    const agora = Date.now();
+    const resultado = Regras.lerMovimentacoesImportadas(conteudo, (indice) => agora + indice);
+    if (resultado.erro) {
+        mostrarAviso(resultado.erro, "erro");
+        return;
+    }
+
+    const importadas = resultado.lista;
+    const qtdImportadas = importadas.length;
+    const textoImportadas = `${qtdImportadas} ${qtdImportadas === 1 ? "movimentação" : "movimentações"}`;
+
+    // A importação substitui os dados atuais, então pede confirmação se já houver algo
+    if (movimentacoes.length > 0) {
+        const atuais = movimentacoes.length === 1
+            ? "a movimentação atual"
+            : `as ${movimentacoes.length} movimentações atuais`;
+        const confirmou = confirm(
+            `O arquivo tem ${textoImportadas}.\n` +
+            `${qtdImportadas === 1 ? "Ela vai" : "Elas vão"} substituir ${atuais}. Continuar?`
+        );
+        if (!confirmou) return;
+    }
+
+    if (!Armazenamento.salvarMovimentacoes(importadas)) {
+        mostrarAviso("Não foi possível salvar os dados importados.", "erro");
+        return;
+    }
+
+    movimentacoes = importadas;
+    if (idEmEdicao !== null) {
+        sairModoEdicao();
+    }
+    atualizarTela();
+
+    let mensagem = `${textoImportadas} ${qtdImportadas === 1 ? "importada" : "importadas"}.`;
+    if (resultado.ignoradas > 0) {
+        mensagem += ` ${resultado.ignoradas} inválida(s) ignorada(s).`;
+    }
+    mostrarAviso(mensagem);
+}
+
+// ---------- Aviso rápido ----------
+
+// Mostra uma mensagem por alguns segundos no canto da tela
+function mostrarAviso(mensagem, tipo = "sucesso") {
+    avisoEl.textContent = mensagem;
+    avisoEl.classList.toggle("erro", tipo === "erro");
+    avisoEl.hidden = false;
+
+    clearTimeout(timerAviso);
+    timerAviso = setTimeout(() => {
+        avisoEl.hidden = true;
+    }, DURACAO_AVISO_MS);
 }
 
 // ---------- Utilitários da tela ----------
