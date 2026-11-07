@@ -475,9 +475,32 @@ h2 {
     min-width: 0;
 }
 
+.movimentacao-titulo {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 4px 8px;
+}
+
 .movimentacao-descricao {
     font-weight: 500;
     overflow-wrap: anywhere;
+}
+
+/* Etiqueta da categoria, ao lado do nome da movimentação */
+.movimentacao-categoria {
+    font-size: 0.75rem;
+    font-weight: 500;
+    line-height: 1.4;
+    padding: 2px 8px;
+    border-radius: 999px;
+    background-color: var(--laranja-claro);
+    border: 1px solid var(--borda);
+    color: #6B5A2E;
+    white-space: nowrap;
+    max-width: 100%;
+    overflow: hidden;
+    text-overflow: ellipsis;
 }
 
 .movimentacao-data {
@@ -599,6 +622,17 @@ h2 {
 
 .form-grupo {
     margin-bottom: 20px;
+}
+
+/* Categoria e subcategoria lado a lado */
+.form-linha {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 12px;
+}
+
+.form-linha .form-grupo {
+    min-width: 0;
 }
 
 fieldset {
@@ -824,6 +858,12 @@ button[type="submit"]:active {
         gap: 16px;
     }
 
+    /* No celular, categoria e subcategoria ficam uma embaixo da outra */
+    .form-linha {
+        grid-template-columns: 1fr;
+        gap: 0;
+    }
+
     .saldo {
         font-size: 2.3rem;
     }
@@ -835,6 +875,17 @@ button[type="submit"]:active {
 
     .movimentacao {
         padding: 14px 16px;
+        flex-wrap: wrap;
+        row-gap: 6px;
+    }
+
+    /* No celular o nome + categoria usam a linha toda; valor e botões vão para baixo */
+    .movimentacao-info {
+        flex: 1 1 100%;
+    }
+
+    .movimentacao-lado {
+        margin-left: auto;
     }
 
 }

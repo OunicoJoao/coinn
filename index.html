@@ -141,6 +141,28 @@
                         </div>
                     </fieldset>
 
+                    <!-- Categoria e subcategoria: texto livre, com sugestões do que já foi usado -->
+                    <div class="form-linha">
+                        <div class="form-grupo">
+                            <div class="label-linha">
+                                <label for="categoria">Categoria</label>
+                                <small>opcional</small>
+                            </div>
+                            <input type="text" id="categoria" list="sugestoes-categoria"
+                                   placeholder="Ex.: Alimentação" maxlength="20" autocomplete="off">
+                            <datalist id="sugestoes-categoria"></datalist>
+                        </div>
+                        <div class="form-grupo">
+                            <div class="label-linha">
+                                <label for="subcategoria">Subcategoria</label>
+                                <small>opcional</small>
+                            </div>
+                            <input type="text" id="subcategoria" list="sugestoes-subcategoria"
+                                   placeholder="Ex.: Mercado" maxlength="20" autocomplete="off">
+                            <datalist id="sugestoes-subcategoria"></datalist>
+                        </div>
+                    </div>
+
                     <div class="form-grupo">
                         <label for="valor">Valor (R$)</label>
                         <input type="number" id="valor" placeholder="0,00"
