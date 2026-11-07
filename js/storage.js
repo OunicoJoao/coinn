@@ -18,6 +18,9 @@ const Armazenamento = (function () {
     // Chave única do projeto, para não colidir com outros apps no mesmo navegador
     const CHAVE_MOVIMENTACOES = "coinn.movimentacoes";
 
+    // Preferência do botão "olho" (mostrar/ocultar valores)
+    const CHAVE_VALORES_VISIVEIS = "coinn.valoresVisiveis";
+
     // Retorna a lista de movimentações salva, ou uma lista vazia
     function carregarMovimentacoes() {
         try {
@@ -45,7 +48,8 @@ const Armazenamento = (function () {
         }
     }
 
-    // Apaga todas as movimentações salvas (usado pelo "Limpar tudo"); retorna true se deu certo
+    // Apaga todas as movimentações salvas (usado pelo "Limpar tudo"); retorna true se deu certo.
+    // A preferência de mostrar/ocultar valores continua salva.
     function removerTodasMovimentacoes() {
         try {
             localStorage.removeItem(CHAVE_MOVIMENTACOES);
@@ -56,10 +60,30 @@ const Armazenamento = (function () {
         }
     }
 
+    // Retorna true se os valores devem aparecer (padrão), false se o usuário escolheu ocultar
+    function carregarValoresVisiveis() {
+        try {
+            return localStorage.getItem(CHAVE_VALORES_VISIVEIS) !== "false";
+        } catch {
+            return true;
+        }
+    }
+
+    function salvarValoresVisiveis(visiveis) {
+        try {
+            localStorage.setItem(CHAVE_VALORES_VISIVEIS, String(visiveis));
+        } catch (erro) {
+            // Não é grave: a preferência só não fica salva para a próxima visita
+            console.error("Coinn: não foi possível salvar a preferência.", erro);
+        }
+    }
+
     return Object.freeze({
         carregarMovimentacoes,
         salvarMovimentacoes,
-        removerTodasMovimentacoes
+        removerTodasMovimentacoes,
+        carregarValoresVisiveis,
+        salvarValoresVisiveis
     });
 })();
 

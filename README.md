@@ -14,6 +14,7 @@ Versão atual: **MVP ampliado (Sprint 4)**
 - **Editar e excluir** (#20): com confirmação antes de excluir
 - **Limpar tudo** (#59): apaga todas as movimentações, com confirmação
 - **Exportar e importar** (#21): cópia de segurança em arquivo `.json`
+- **Ocultar valores** (#56): botão de olho para usar o Coinn em público
 
 ## Como executar
 
@@ -43,7 +44,7 @@ npm run lint       # verifica o padrão do código
 
 ## Como os dados são guardados
 
-As movimentações ficam salvas no **localStorage** do navegador, na chave `coinn.movimentacoes`. Isso significa que:
+As movimentações ficam salvas no **localStorage** do navegador, na chave `coinn.movimentacoes`. A preferência do botão de olho fica em `coinn.valoresVisiveis`. Isso significa que:
 
 - os dados ficam apenas no computador e no navegador de quem usa;
 - nada é enviado para a internet;

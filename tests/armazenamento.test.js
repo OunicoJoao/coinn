@@ -70,10 +70,16 @@ describe("Armazenamento", () => {
         assert.equal(semConsoleError(() => Armazenamento.salvarMovimentacoes([])), false);
     });
 
-    it("limpar tudo apaga as movimentações", () => {
+    it("limpar tudo apaga as movimentações, mas mantém a preferência de visibilidade", () => {
         Armazenamento.salvarMovimentacoes([{ id: 1 }]);
+        Armazenamento.salvarValoresVisiveis(false);
 
         assert.equal(Armazenamento.removerTodasMovimentacoes(), true);
         assert.deepEqual(Armazenamento.carregarMovimentacoes(), []);
+        assert.equal(Armazenamento.carregarValoresVisiveis(), false);
+    });
+
+    it("valores ficam visíveis por padrão", () => {
+        assert.equal(Armazenamento.carregarValoresVisiveis(), true);
     });
 });
