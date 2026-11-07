@@ -69,4 +69,11 @@ describe("Armazenamento", () => {
         };
         assert.equal(semConsoleError(() => Armazenamento.salvarMovimentacoes([])), false);
     });
+
+    it("limpar tudo apaga as movimentações", () => {
+        Armazenamento.salvarMovimentacoes([{ id: 1 }]);
+
+        assert.equal(Armazenamento.removerTodasMovimentacoes(), true);
+        assert.deepEqual(Armazenamento.carregarMovimentacoes(), []);
+    });
 });

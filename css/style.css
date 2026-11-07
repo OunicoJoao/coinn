@@ -157,6 +157,39 @@ h2 {
     min-width: 0;
 }
 
+.historico-cabecalho {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 12px;
+    margin-bottom: 1rem;
+}
+
+.historico-cabecalho h2 {
+    margin-bottom: 0;
+}
+
+/* Botão "Limpar tudo" */
+.btn-limpar {
+    background: none;
+    border: 2px solid transparent;
+    color: var(--cor-saida);
+    font-family: inherit;
+    font-size: 0.9rem;
+    font-weight: 500;
+    padding: 4px 12px;
+    border-radius: 8px;
+    cursor: pointer;
+    transition: all 0.2s ease;
+}
+
+.btn-limpar:hover,
+.btn-limpar:focus-visible {
+    background-color: #FEE2E2;
+    border-color: #FECACA;
+    outline: none;
+}
+
 .historico-vazio {
     color: var(--texto-forte);
     padding: 1rem 0;

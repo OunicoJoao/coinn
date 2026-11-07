@@ -1,7 +1,7 @@
 /*
  * app.js
  * Lógica da interface: registrar movimentação (#17), consultar saldo (#18),
- * ver histórico (#19), editar e excluir (#20).
+ * ver histórico (#19), editar e excluir (#20) e limpar tudo.
  *
  * Este arquivo só cuida da tela (ler o formulário, desenhar a lista, reagir a cliques).
  * - As regras de negócio (validar, calcular, ordenar) ficam em regras.js.
@@ -21,6 +21,7 @@ const totalEntradasEl = document.getElementById("total-entradas");
 const totalSaidasEl = document.getElementById("total-saidas");
 const listaEl = document.getElementById("lista-movimentacoes");
 const historicoVazioEl = document.getElementById("historico-vazio");
+const btnLimparTudoEl = document.getElementById("btn-limpar-tudo");
 const formContainerEl = document.getElementById("form-container");
 const tituloFormEl = document.getElementById("titulo-form");
 const formEl = document.getElementById("form-movimentacao");
@@ -49,6 +50,7 @@ dataEl.value = hoje();
 formEl.addEventListener("submit", registrarMovimentacao);
 descricaoEl.addEventListener("input", atualizarContador);
 btnCancelarEdicaoEl.addEventListener("click", cancelarEdicao);
+btnLimparTudoEl.addEventListener("click", limparTudo);
 
 // Um único listener na lista cuida dos botões de todos os itens (delegação de eventos),
 // assim não é preciso usar onclick no HTML gerado
@@ -179,6 +181,28 @@ function excluirMovimentacao(id) {
     atualizarTela();
 }
 
+// ---------- Limpar tudo ----------
+
+function limparTudo() {
+    if (movimentacoes.length === 0) return;
+
+    const quantidade = movimentacoes.length;
+    const texto = quantidade === 1 ? "a movimentação registrada" : `as ${quantidade} movimentações registradas`;
+    const confirmou = confirm(`Apagar ${texto}? Essa ação não pode ser desfeita.`);
+    if (!confirmou) return;
+
+    if (!Armazenamento.removerTodasMovimentacoes()) {
+        mostrarErro("Não foi possível apagar. Verifique se o navegador permite armazenamento local.");
+        return;
+    }
+
+    movimentacoes = [];
+    if (idEmEdicao !== null) {
+        sairModoEdicao();
+    }
+    atualizarTela();
+}
+
 // ---------- #18 Consultar saldo ----------
 
 function atualizarResumo() {
@@ -194,6 +218,9 @@ function atualizarResumo() {
 
 function atualizarHistorico() {
     listaEl.replaceChildren(); // limpa a lista
+
+    const temMovimentacoes = movimentacoes.length > 0;
+    btnLimparTudoEl.hidden = !temMovimentacoes;
 
     const visiveis = Regras.ordenarHistorico(movimentacoes);
 

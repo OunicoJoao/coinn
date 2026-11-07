@@ -45,9 +45,21 @@ const Armazenamento = (function () {
         }
     }
 
+    // Apaga todas as movimentações salvas (usado pelo "Limpar tudo"); retorna true se deu certo
+    function removerTodasMovimentacoes() {
+        try {
+            localStorage.removeItem(CHAVE_MOVIMENTACOES);
+            return true;
+        } catch (erro) {
+            console.error("Coinn: não foi possível apagar os dados.", erro);
+            return false;
+        }
+    }
+
     return Object.freeze({
         carregarMovimentacoes,
-        salvarMovimentacoes
+        salvarMovimentacoes,
+        removerTodasMovimentacoes
     });
 })();
 

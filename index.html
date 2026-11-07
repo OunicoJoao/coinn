@@ -47,7 +47,12 @@
 
             <!-- #19 Ver histórico -->
             <section class="historico-container">
-                <h2>Histórico</h2>
+                <div class="historico-cabecalho">
+                    <h2>Histórico</h2>
+                    <!-- Limpar tudo: apaga todas as movimentações (pede confirmação) -->
+                    <button type="button" id="btn-limpar-tudo" class="btn-limpar" hidden>Limpar tudo</button>
+                </div>
+
                 <p id="historico-vazio" class="historico-vazio">Nenhuma movimentação registrada ainda.</p>
                 <!--Movimentações adicionadas aqui via Javascript-->
                 <ul id="lista-movimentacoes"></ul>
