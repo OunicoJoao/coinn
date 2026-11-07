@@ -109,7 +109,7 @@ describe("calcularResumo", () => {
     });
 });
 
-describe("adicionarMovimentacao", () => {
+describe("adicionar, editar e excluir", () => {
     it("adicionar devolve uma lista nova, com valor arredondado e textos sem espaços nas pontas", () => {
         const original = [];
         const nova = Regras.adicionarMovimentacao(
@@ -122,6 +122,21 @@ describe("adicionarMovimentacao", () => {
             ...mov({ valor: 10.46, descricao: "Café" }),
             id: 99
         });
+    });
+
+    it("editar troca só a movimentação certa e registra dataModificacao", () => {
+        const lista = [mov({ id: 1 }), mov({ id: 2, descricao: "Mercado" })];
+        const nova = Regras.editarMovimentacao(lista, 2, mov({ descricao: "Feira" }), "2026-10-28T12:00:00.000Z");
+        assert.equal(nova[0], lista[0], "a movimentação 1 não muda");
+        assert.equal(nova[1].id, 2, "o id é mantido");
+        assert.equal(nova[1].descricao, "Feira");
+        assert.equal(nova[1].dataModificacao, "2026-10-28T12:00:00.000Z");
+        assert.equal(lista[1].descricao, "Mercado", "a lista original não pode ser alterada");
+    });
+
+    it("excluir remove só a movimentação com o id informado", () => {
+        const lista = [mov({ id: 1 }), mov({ id: 2 }), mov({ id: 3 })];
+        assert.deepEqual(ids(Regras.excluirMovimentacao(lista, 2)), [1, 3]);
     });
 });
 
