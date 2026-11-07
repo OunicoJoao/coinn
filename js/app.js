@@ -1,7 +1,7 @@
 /*
  * app.js
  * Lógica da interface: registrar movimentação (#17), consultar saldo (#18),
- * ver histórico (#19), editar e excluir (#20) e limpar tudo.
+ * ver histórico (#19), editar e excluir (#20), categorias e subcategorias e limpar tudo.
  * Na barra do topo: mostrar/ocultar valores e exportar/importar os dados (#21).
  *
  * Este arquivo só cuida da tela (ler o formulário, desenhar a lista, reagir a cliques).
@@ -36,6 +36,10 @@ const descricaoEl = document.getElementById("descricao");
 const contadorEl = document.getElementById("contador-descricao");
 const valorEl = document.getElementById("valor");
 const dataEl = document.getElementById("data");
+const categoriaEl = document.getElementById("categoria");
+const subcategoriaEl = document.getElementById("subcategoria");
+const sugestoesCategoriaEl = document.getElementById("sugestoes-categoria");
+const sugestoesSubcategoriaEl = document.getElementById("sugestoes-subcategoria");
 const erroEl = document.getElementById("mensagem-erro");
 const btnRegistrarEl = document.getElementById("btn-registrar");
 const btnCancelarEdicaoEl = document.getElementById("btn-cancelar-edicao");
@@ -49,7 +53,8 @@ const avisoEl = document.getElementById("aviso");
 
 // ---------- Estado ----------
 
-let movimentacoes = Armazenamento.carregarMovimentacoes();
+// normalizarMovimentacao garante os campos de categoria em dados salvos antes deles existirem
+let movimentacoes = Armazenamento.carregarMovimentacoes().map(Regras.normalizarMovimentacao);
 
 // id da movimentação sendo editada; null quando o formulário está criando uma nova
 let idEmEdicao = null;
@@ -63,6 +68,8 @@ let timerAviso = null;
 // ---------- Inicialização ----------
 
 descricaoEl.maxLength = LIMITES.DESCRICAO_MAX;
+categoriaEl.maxLength = LIMITES.CATEGORIA_MAX;
+subcategoriaEl.maxLength = LIMITES.CATEGORIA_MAX;
 valorEl.min = LIMITES.VALOR_MIN;
 valorEl.max = LIMITES.VALOR_MAX;
 dataEl.value = hoje();
@@ -71,6 +78,7 @@ formEl.addEventListener("submit", registrarMovimentacao);
 descricaoEl.addEventListener("input", atualizarContador);
 btnCancelarEdicaoEl.addEventListener("click", cancelarEdicao);
 btnLimparTudoEl.addEventListener("click", limparTudo);
+categoriaEl.addEventListener("input", atualizarSugestoesSubcategoria);
 
 // Um único listener na lista cuida dos botões de todos os itens (delegação de eventos),
 // assim não é preciso usar onclick no HTML gerado
@@ -94,12 +102,14 @@ atualizarTela();
 function registrarMovimentacao(evento) {
     evento.preventDefault(); // evita recarregar a página
 
-    const dados = lerFormulario();
-    const erro = Regras.validarMovimentacao(dados);
+    const erro = Regras.validarMovimentacao(lerFormulario());
     if (erro) {
         mostrarErro(erro);
         return;
     }
+
+    // Se já existe "Alimentação" e a pessoa digitou "alimentação", usa a grafia que já existe
+    const dados = Regras.aplicarGrafiaExistente(movimentacoes, lerFormulario());
 
     const novaLista = idEmEdicao !== null
         ? Regras.editarMovimentacao(movimentacoes, idEmEdicao, dados, new Date().toISOString())
@@ -121,7 +131,9 @@ function lerFormulario() {
         tipo: tipoMarcado ? tipoMarcado.value : "",
         valor: Number(valorEl.value),
         data: dataEl.value,
-        descricao: descricaoEl.value.trim()
+        descricao: descricaoEl.value.trim(),
+        categoria: categoriaEl.value.trim(),
+        subcategoria: subcategoriaEl.value.trim()
     };
 }
 
@@ -130,6 +142,7 @@ function limparFormulario() {
     dataEl.value = hoje();
     esconderErro();
     atualizarContador();
+    atualizarSugestoesSubcategoria();
     descricaoEl.focus();
 }
 
@@ -147,6 +160,8 @@ function iniciarEdicao(id) {
     valorEl.value = mov.valor;
     dataEl.value = mov.data;
     descricaoEl.value = mov.descricao;
+    categoriaEl.value = mov.categoria;
+    subcategoriaEl.value = mov.subcategoria;
 
     tituloFormEl.textContent = "Editar movimentação";
     btnRegistrarEl.textContent = "Salvar alterações";
@@ -155,6 +170,7 @@ function iniciarEdicao(id) {
 
     esconderErro();
     atualizarContador();
+    atualizarSugestoesSubcategoria();
     destacarItemEmEdicao();
 
     // No celular o formulário pode estar fora da tela
@@ -262,6 +278,25 @@ function atualizarHistorico() {
     historicoVazioEl.hidden = visiveis.length > 0;
 }
 
+// Sugestões que aparecem ao digitar no campo de categoria do formulário
+function atualizarSugestoesCategoria() {
+    sugestoesCategoriaEl.replaceChildren(
+        ...Regras.listarCategorias(movimentacoes).map((cat) => new Option(cat))
+    );
+    atualizarSugestoesSubcategoria();
+}
+
+// Sugestões de subcategoria: só as da categoria digitada no formulário
+function atualizarSugestoesSubcategoria() {
+    const categoria = Regras.usarGrafiaExistente(
+        categoriaEl.value.trim(),
+        Regras.listarCategorias(movimentacoes)
+    );
+    sugestoesSubcategoriaEl.replaceChildren(
+        ...Regras.listarSubcategorias(movimentacoes, categoria).map((sub) => new Option(sub))
+    );
+}
+
 // Monta o item com textContent (nunca innerHTML) para o texto digitado
 // pelo usuário não ser interpretado como HTML
 function criarItemHistorico(mov) {
@@ -275,15 +310,29 @@ function criarItemHistorico(mov) {
     const info = document.createElement("div");
     info.classList.add("movimentacao-info");
 
+    const titulo = document.createElement("div");
+    titulo.classList.add("movimentacao-titulo");
+
     const descricao = document.createElement("span");
     descricao.classList.add("movimentacao-descricao");
     descricao.textContent = mov.descricao;
+    titulo.append(descricao);
+
+    // Etiqueta ao lado do nome: "Alimentação › Mercado"
+    const rotulo = Regras.rotuloCategoria(mov);
+    if (rotulo) {
+        const etiqueta = document.createElement("span");
+        etiqueta.classList.add("movimentacao-categoria");
+        etiqueta.textContent = rotulo;
+        etiqueta.title = rotulo; // mostra o texto inteiro se for cortado
+        titulo.append(etiqueta);
+    }
 
     const detalhe = document.createElement("span");
     detalhe.classList.add("movimentacao-data");
     detalhe.textContent = `${Regras.formatarData(mov.data)} · ${ehEntrada ? "Entrada" : "Saída"}`;
 
-    info.append(descricao, detalhe);
+    info.append(titulo, detalhe);
 
     const lado = document.createElement("div");
     lado.classList.add("movimentacao-lado");
@@ -490,6 +539,7 @@ function mostrarAviso(mensagem, tipo = "sucesso") {
 
 function atualizarTela() {
     atualizarResumo();
+    atualizarSugestoesCategoria();
     atualizarHistorico();
 }
 

@@ -1,6 +1,6 @@
 /*
  * regras.js
- * Regras de negócio do Coinn: validação, cálculos, ordenação,
+ * Regras de negócio do Coinn: validação, cálculos, categorias, ordenação,
  * importação/exportação e formatação.
  *
  * Tudo aqui é função pura: recebe dados e devolve um resultado, sem mexer
@@ -11,7 +11,10 @@
  * espalhar dezenas de funções soltas no escopo global do navegador.
  *
  * Modelo de dados de uma movimentação:
- *   { id, tipo ("entrada" | "saida"), valor, data ("AAAA-MM-DD"), descricao, dataModificacao? }
+ *   { id, tipo ("entrada" | "saida"), valor, data ("AAAA-MM-DD"), descricao,
+ *     categoria, subcategoria, dataModificacao? }
+ *   categoria e subcategoria são texto livre e opcionais ("" quando não informadas).
+ *   Só existe subcategoria se houver categoria.
  */
 
 /* exported Regras */
@@ -28,12 +31,14 @@ const Regras = (function () {
 
     const LIMITES = Object.freeze({
         DESCRICAO_MAX: 30,
+        CATEGORIA_MAX: 20,
         VALOR_MIN: 0.01,
         VALOR_MAX: 999999.99
     });
 
-    // Versão do formato do arquivo exportado (ajuda se o formato mudar no futuro)
-    const VERSAO_EXPORTACAO = 1;
+    // Versão do formato do arquivo exportado.
+    // v1: sem categoria | v2: com categoria e subcategoria (arquivos v1 continuam aceitos)
+    const VERSAO_EXPORTACAO = 2;
 
     // ---------- Valores, textos e datas ----------
 
@@ -64,7 +69,7 @@ const Regras = (function () {
 
     // Retorna uma mensagem de erro, ou null se os dados estiverem válidos.
     // Usada pelo formulário (registrar e editar) e pela importação.
-    function validarMovimentacao({ tipo, valor, data, descricao }) {
+    function validarMovimentacao({ tipo, valor, data, descricao, categoria = "", subcategoria = "" }) {
         if (tipo !== TIPO.ENTRADA && tipo !== TIPO.SAIDA) {
             return "Escolha se é uma entrada ou uma saída.";
         }
@@ -83,17 +88,84 @@ const Regras = (function () {
         if (textoLimpo(descricao).length > LIMITES.DESCRICAO_MAX) {
             return `A descrição pode ter no máximo ${LIMITES.DESCRICAO_MAX} caracteres.`;
         }
+        const cat = textoLimpo(categoria);
+        const sub = textoLimpo(subcategoria);
+        if (cat.length > LIMITES.CATEGORIA_MAX || sub.length > LIMITES.CATEGORIA_MAX) {
+            return `Categoria e subcategoria podem ter no máximo ${LIMITES.CATEGORIA_MAX} caracteres.`;
+        }
+        if (sub && !cat) {
+            return "Informe a categoria antes da subcategoria.";
+        }
         return null;
     }
 
     // Monta só os campos que são guardados, já limpos
-    function normalizarCampos({ tipo, valor, data, descricao }) {
+    function normalizarCampos({ tipo, valor, data, descricao, categoria, subcategoria }) {
+        const cat = textoLimpo(categoria);
         return {
             tipo,
             valor: arredondarCentavos(valor),
             data,
-            descricao: textoLimpo(descricao)
+            descricao: textoLimpo(descricao),
+            categoria: cat,
+            subcategoria: cat ? textoLimpo(subcategoria) : ""
         };
+    }
+
+    // Garante que toda movimentação salva tenha categoria e subcategoria (texto, "" se vazio).
+    // Movimentações registradas antes das categorias existirem não têm esses campos.
+    function normalizarMovimentacao(mov) {
+        const categoria = textoLimpo(mov.categoria);
+        const subcategoria = categoria ? textoLimpo(mov.subcategoria) : "";
+        return { ...mov, categoria, subcategoria };
+    }
+
+    // ---------- Categorias e subcategorias ----------
+
+    function ordenarSemRepetir(textos) {
+        return [...new Set(textos)].sort((a, b) => a.localeCompare(b, "pt-BR"));
+    }
+
+    // Categorias já usadas, sem repetir, em ordem alfabética
+    function listarCategorias(lista) {
+        return ordenarSemRepetir(lista.map((mov) => mov.categoria).filter(Boolean));
+    }
+
+    // Subcategorias já usadas dentro de uma categoria
+    function listarSubcategorias(lista, categoria) {
+        if (!categoria) return [];
+        return ordenarSemRepetir(
+            lista
+                .filter((mov) => mov.categoria === categoria)
+                .map((mov) => mov.subcategoria)
+                .filter(Boolean)
+        );
+    }
+
+    // Se o texto já existe com outra combinação de maiúsculas/minúsculas, usa a versão existente
+    function usarGrafiaExistente(texto, existentes) {
+        if (!texto) return "";
+        const igual = existentes.find(
+            (item) => item.toLocaleLowerCase("pt-BR") === texto.toLocaleLowerCase("pt-BR")
+        );
+        return igual || texto;
+    }
+
+    // Se já existe "Alimentação" e a pessoa digitou "alimentação", usa a grafia que já existe
+    // (vale também para a subcategoria, dentro da mesma categoria)
+    function aplicarGrafiaExistente(lista, dados) {
+        const categoria = usarGrafiaExistente(textoLimpo(dados.categoria), listarCategorias(lista));
+        const subcategoria = usarGrafiaExistente(
+            textoLimpo(dados.subcategoria),
+            listarSubcategorias(lista, categoria)
+        );
+        return { ...dados, categoria, subcategoria };
+    }
+
+    // Texto da etiqueta no histórico: "Alimentação › Mercado", "Alimentação" ou ""
+    function rotuloCategoria(mov) {
+        if (!mov.categoria) return "";
+        return mov.subcategoria ? `${mov.categoria} › ${mov.subcategoria}` : mov.categoria;
     }
 
     // ---------- Criar, editar e excluir ----------
@@ -162,6 +234,7 @@ const Regras = (function () {
 
     // Confere o conteúdo do arquivo e devolve { lista, ignoradas } ou { erro }.
     // Aceita o formato exportado pela Coinn ({ movimentacoes: [...] }) ou só a lista.
+    // Arquivos antigos (v1) não têm categoria: as movimentações ficam sem categoria.
     function lerMovimentacoesImportadas(conteudo, gerarId) {
         const itens = Array.isArray(conteudo) ? conteudo : conteudo?.movimentacoes;
         if (!Array.isArray(itens)) {
@@ -173,11 +246,15 @@ const Regras = (function () {
         let ignoradas = 0;
 
         itens.forEach((item, indice) => {
+            const categoria = textoLimpo(item?.categoria);
             const dados = {
                 tipo: item?.tipo,
                 valor: Number(item?.valor),
                 data: item?.data,
-                descricao: textoLimpo(item?.descricao)
+                descricao: textoLimpo(item?.descricao),
+                categoria,
+                // Subcategoria sem categoria não faz sentido: descarta só a subcategoria
+                subcategoria: categoria ? textoLimpo(item?.subcategoria) : ""
             };
 
             // Reaproveita a mesma validação do formulário
@@ -239,6 +316,12 @@ const Regras = (function () {
         arredondarCentavos,
         dataValida,
         validarMovimentacao,
+        normalizarMovimentacao,
+        listarCategorias,
+        listarSubcategorias,
+        usarGrafiaExistente,
+        aplicarGrafiaExistente,
+        rotuloCategoria,
         adicionarMovimentacao,
         editarMovimentacao,
         excluirMovimentacao,

@@ -20,6 +20,8 @@ function mov(campos = {}) {
         valor: 100,
         data: "2026-10-14",
         descricao: "Salário",
+        categoria: "Trabalho",
+        subcategoria: "Salário",
         ...campos
     };
 }
@@ -55,6 +57,30 @@ describe("validarMovimentacao", () => {
     it("aceita descrição com 30 caracteres e recusa com 31", () => {
         assert.equal(Regras.validarMovimentacao(mov({ descricao: "a".repeat(30) })), null);
         assert.match(Regras.validarMovimentacao(mov({ descricao: "a".repeat(31) })), /no máximo 30/);
+    });
+});
+
+describe("validação de categoria e subcategoria", () => {
+    it("categoria e subcategoria são opcionais", () => {
+        assert.equal(Regras.validarMovimentacao(mov({ categoria: "", subcategoria: "" })), null);
+        assert.equal(Regras.validarMovimentacao(mov({ categoria: undefined, subcategoria: undefined })), null);
+    });
+
+    it("aceita categoria sem subcategoria", () => {
+        assert.equal(Regras.validarMovimentacao(mov({ subcategoria: "" })), null);
+    });
+
+    it("recusa subcategoria sem categoria", () => {
+        assert.match(
+            Regras.validarMovimentacao(mov({ categoria: "", subcategoria: "Mercado" })),
+            /categoria antes da subcategoria/
+        );
+    });
+
+    it("aceita até 20 caracteres e recusa 21, nos dois campos", () => {
+        assert.equal(Regras.validarMovimentacao(mov({ categoria: "a".repeat(20), subcategoria: "b".repeat(20) })), null);
+        assert.match(Regras.validarMovimentacao(mov({ categoria: "a".repeat(21) })), /no máximo 20/);
+        assert.match(Regras.validarMovimentacao(mov({ subcategoria: "b".repeat(21) })), /no máximo 20/);
     });
 });
 
@@ -114,12 +140,12 @@ describe("adicionar, editar e excluir", () => {
         const original = [];
         const nova = Regras.adicionarMovimentacao(
             original,
-            mov({ valor: 10.456, descricao: "  Café  " }),
+            mov({ valor: 10.456, descricao: "  Café  ", categoria: " Alimentação ", subcategoria: " Padaria " }),
             99
         );
         assert.equal(original.length, 0, "a lista original não pode ser alterada");
         assert.deepEqual(nova[0], {
-            ...mov({ valor: 10.46, descricao: "Café" }),
+            ...mov({ valor: 10.46, descricao: "Café", categoria: "Alimentação", subcategoria: "Padaria" }),
             id: 99
         });
     });
@@ -140,13 +166,60 @@ describe("adicionar, editar e excluir", () => {
     });
 });
 
+describe("categorias e subcategorias", () => {
+    const lista = [
+        mov({ id: 1, categoria: "Alimentação", subcategoria: "Mercado" }),
+        mov({ id: 2, categoria: "Alimentação", subcategoria: "Delivery" }),
+        mov({ id: 3, categoria: "Alimentação", subcategoria: "" }),
+        mov({ id: 4, categoria: "Transporte", subcategoria: "Uber" }),
+        mov({ id: 5, categoria: "", subcategoria: "" })
+    ];
+
+    it("normaliza movimentações antigas, sem os campos de categoria", () => {
+        const antiga = { id: 1, tipo: TIPO.SAIDA, valor: 10, data: "2026-09-01", descricao: "Antiga" };
+        assert.deepEqual(Regras.normalizarMovimentacao(antiga), { ...antiga, categoria: "", subcategoria: "" });
+    });
+
+    it("normalizar descarta subcategoria sem categoria", () => {
+        assert.equal(Regras.normalizarMovimentacao(mov({ categoria: "", subcategoria: "Solta" })).subcategoria, "");
+    });
+
+    it("lista as categorias usadas, sem repetir e em ordem alfabética", () => {
+        assert.deepEqual(Regras.listarCategorias(lista), ["Alimentação", "Transporte"]);
+    });
+
+    it("lista as subcategorias de uma categoria", () => {
+        assert.deepEqual(Regras.listarSubcategorias(lista, "Alimentação"), ["Delivery", "Mercado"]);
+        assert.deepEqual(Regras.listarSubcategorias(lista, "Lazer"), []);
+        assert.deepEqual(Regras.listarSubcategorias(lista, ""), []);
+    });
+
+    it("reaproveita a grafia já existente, ignorando maiúsculas e minúsculas", () => {
+        const dados = Regras.aplicarGrafiaExistente(lista, { categoria: "alimentação", subcategoria: "MERCADO" });
+        assert.equal(dados.categoria, "Alimentação");
+        assert.equal(dados.subcategoria, "Mercado");
+    });
+
+    it("mantém o texto digitado quando a categoria é nova", () => {
+        const dados = Regras.aplicarGrafiaExistente(lista, { categoria: "Lazer", subcategoria: "Cinema" });
+        assert.equal(dados.categoria, "Lazer");
+        assert.equal(dados.subcategoria, "Cinema");
+    });
+
+    it("monta o rótulo da etiqueta do histórico", () => {
+        assert.equal(Regras.rotuloCategoria(lista[0]), "Alimentação › Mercado");
+        assert.equal(Regras.rotuloCategoria(lista[2]), "Alimentação");
+        assert.equal(Regras.rotuloCategoria(lista[4]), "");
+    });
+});
+
 describe("histórico: ordenação", () => {
     const lista = [
-        mov({ id: 1, data: "2026-09-30", tipo: TIPO.ENTRADA }),
-        mov({ id: 2, data: "2026-10-05", tipo: TIPO.SAIDA }),
-        mov({ id: 3, data: "2026-10-05", tipo: TIPO.SAIDA }),
-        mov({ id: 4, data: "2026-10-20", tipo: TIPO.SAIDA }),
-        mov({ id: 5, data: "2026-10-21", tipo: TIPO.ENTRADA })
+        mov({ id: 1, data: "2026-09-30", tipo: TIPO.ENTRADA, categoria: "Trabalho", subcategoria: "Salário" }),
+        mov({ id: 2, data: "2026-10-05", tipo: TIPO.SAIDA, categoria: "Alimentação", subcategoria: "Mercado" }),
+        mov({ id: 3, data: "2026-10-05", tipo: TIPO.SAIDA, categoria: "Alimentação", subcategoria: "" }),
+        mov({ id: 4, data: "2026-10-20", tipo: TIPO.SAIDA, categoria: "Transporte", subcategoria: "Uber" }),
+        mov({ id: 5, data: "2026-10-21", tipo: TIPO.ENTRADA, categoria: "", subcategoria: "" })
     ];
 
     it("ordena da data mais recente para a mais antiga; no mesmo dia, a registrada por último primeiro", () => {
@@ -171,12 +244,29 @@ describe("importação", () => {
         const conteudo = Regras.montarExportacao([
             mov({ id: 1 }),
             mov({ id: 2, valor: -5 }),
-            mov({ id: 3, data: "2026-13-45" })
+            mov({ id: 3, data: "2026-13-45" }),
+            mov({ id: 4, categoria: "a".repeat(21) })
         ], "2026-10-28T12:00:00.000Z");
 
         const resultado = Regras.lerMovimentacoesImportadas(conteudo, gerarId);
         assert.deepEqual(ids(resultado.lista), [1]);
-        assert.equal(resultado.ignoradas, 2);
+        assert.equal(resultado.ignoradas, 3);
+    });
+
+    it("aceita arquivos antigos (v1, sem categoria) como 'sem categoria'", () => {
+        const antigo = { app: "coinn", versao: 1, movimentacoes: [mov({ categoria: undefined, subcategoria: undefined })] };
+        const { lista } = Regras.lerMovimentacoesImportadas(antigo, gerarId);
+        assert.equal(lista[0].categoria, "");
+        assert.equal(lista[0].subcategoria, "");
+    });
+
+    it("descarta só a subcategoria quando ela vem sem categoria", () => {
+        const { lista, ignoradas } = Regras.lerMovimentacoesImportadas(
+            [mov({ categoria: "", subcategoria: "Solta" })],
+            gerarId
+        );
+        assert.equal(ignoradas, 0);
+        assert.equal(lista[0].subcategoria, "");
     });
 
     it("cria um id novo quando o id falta ou está repetido", () => {

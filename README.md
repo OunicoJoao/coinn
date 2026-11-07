@@ -8,13 +8,14 @@ Projeto desenvolvido pela equipe **Ministério da Fazenda** na disciplina de Eng
 
 Versão atual: **MVP ampliado (Sprint 4)**
 
-- **Registrar movimentação** (#17): entrada ou saída, com valor, data e descrição
+- **Registrar movimentação** (#17): entrada ou saída, com valor, data, descrição, categoria e subcategoria
 - **Consultar saldo** (#18): saldo atual, total de entradas e total de saídas
 - **Ver histórico** (#19): lista da movimentação mais recente para a mais antiga
 - **Editar e excluir** (#20): com confirmação antes de excluir
 - **Limpar tudo** (#59): apaga todas as movimentações, com confirmação
 - **Exportar e importar** (#21): cópia de segurança em arquivo `.json`
 - **Ocultar valores** (#56): botão de olho para usar o Coinn em público
+- **Categorias e subcategorias** (#57): texto livre e opcional (ex.: Alimentação › Mercado), com sugestões do que já foi usado
 
 ## Como executar
 
@@ -61,6 +62,8 @@ Cada movimentação é salva assim:
   "valor": 450.5,
   "data": "2026-10-12",
   "descricao": "Mercado",
+  "categoria": "Alimentação",
+  "subcategoria": "Mercado",
   "dataModificacao": "2026-10-28T21:23:57.185Z"
 }
 ```
@@ -72,6 +75,8 @@ Cada movimentação é salva assim:
 | `valor` | Número positivo, de 0,01 a 999.999,99 |
 | `data` | Data no formato `AAAA-MM-DD` |
 | `descricao` | Texto de até 30 caracteres |
+| `categoria` | Texto livre e opcional, até 20 caracteres (`""` quando não informada) |
+| `subcategoria` | Texto livre e opcional, até 20 caracteres. Só existe se houver categoria |
 | `dataModificacao` | Só existe se a movimentação foi editada: data e hora da última alteração |
 
 O saldo não é armazenado: ele é calculado a partir das movimentações sempre que a tela é atualizada.

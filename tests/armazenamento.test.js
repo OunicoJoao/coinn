@@ -45,7 +45,7 @@ describe("Armazenamento", () => {
     });
 
     it("salva e carrega a mesma lista", () => {
-        const lista = [{ id: 1, tipo: "entrada", valor: 10, data: "2026-10-14", descricao: "Teste" }];
+        const lista = [{ id: 1, tipo: "entrada", valor: 10, data: "2026-10-14", descricao: "Teste", categoria: "Alimentação", subcategoria: "Mercado" }];
         assert.equal(Armazenamento.salvarMovimentacoes(lista), true);
         assert.deepEqual(Armazenamento.carregarMovimentacoes(), lista);
     });
