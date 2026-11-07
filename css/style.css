@@ -4,16 +4,25 @@
  */
 
 :root {
-    --laranja-escuro: #fcd97a; 
-    --cinza-claro: #ebebeb;
-    --cinza-suave: #d3d3d3;
-    --cor-entrada: #059669;
+    /* Paleta baseada na barra do topo: laranja + escuro + creme */
+    --laranja-escuro: #fcd97a;   /* laranja principal (barra do topo) */
+    --laranja-forte: #F2C14E;    /* bordas de foco, onde o laranja precisa aparecer mais */
+    --laranja-claro: #FFF4D6;    /* fundos suaves (formulário, item em edição) */
+    --creme: #FFFBF2;            /* fundo da página */
+    --escuro: #1A202C;           /* mesmo escuro do botão "selecionado" da barra */
+    --escuro-2: #2A3242;         /* cartões dentro do bloco escuro */
+
+    --cor-entrada: #059669;      /* verde/vermelho sobre fundo claro */
     --cor-saida: #DC2626;
+    --entrada-clara: #6EE7B7;    /* verde/vermelho sobre fundo escuro */
+    --saida-clara: #FCA5A5;
+
     --texto: #2D3436;
     --texto-forte: #1A202C;
-    --texto-suave: #718096;
-    --borda: #E2E8F0;
-    --sombra: 0 4px 12px rgba(0, 0, 0, 0.15);
+    --texto-suave: #786F5E;      /* cinza "quente", combina com o laranja */
+    --borda: #F1E4BF;
+    --borda-hover: #E6D08F;
+    --sombra: 0 4px 14px rgba(120, 90, 20, 0.10);
 }
 
 * {
@@ -28,7 +37,7 @@
 }
 
 body {
-    background: #FFF;
+    background: var(--creme);
     min-height: 100vh;
     font-family: "Poppins", sans-serif;
     display: flex;
@@ -42,10 +51,11 @@ body {
     width: calc(100% - 40px);
     max-width: 1200px;
     margin-top: 24px;
-    background-color: #d6d6d6;
+    background-color: #FFF;
     padding: 2rem;
     border-radius: 24px;
-    box-shadow: 0 12px 24px rgba(0, 0, 0, 0.15);
+    border: 1px solid var(--borda);
+    box-shadow: 0 12px 32px rgba(120, 90, 20, 0.08);
 }
 
 /* ---------- Barra do topo ---------- */
@@ -221,7 +231,7 @@ body {
 
 .menu-item:hover,
 .menu-item:focus-visible {
-    background-color: #FFF6DB;
+    background-color: var(--laranja-claro);
     outline: none;
 }
 
@@ -266,14 +276,15 @@ h2 {
 
 /* ---------- Saldo (#18) ---------- */
 
+/* Mesmo laranja-claro do formulário de nova movimentação */
 .saldo-container {
     text-align: center;
     margin-bottom: 35px;
     padding: 24px;
-    background:var(--cinza-claro);
+    background: var(--laranja-claro);
     border-radius: 1rem;
     box-shadow: var(--sombra);
-    border: 2px solid var(--cinza-claro);
+    border: 2px solid var(--laranja-claro);
     transition:transform 1s ease, border 1s ease;
 }
 
@@ -305,6 +316,7 @@ h2 {
     background-color: #FFF;
     padding: 24px;
     border-radius: 1rem;
+    border: 1px solid var(--borda);
     box-shadow: var(--sombra);
     transition: transform 0.2s ease;
 }
@@ -404,17 +416,17 @@ h2 {
 }
 
 #lista-movimentacoes::-webkit-scrollbar-track {
-    background-color: #F1F1F1;
+    background-color: var(--creme);
     border-radius: 4px;
 }
 
 #lista-movimentacoes::-webkit-scrollbar-thumb {
-    background-color: #b5bac0;
+    background-color: var(--borda);
     border-radius: 4px;
 }
 
 #lista-movimentacoes::-webkit-scrollbar-thumb:hover {
-    background-color: #A0AEC0;
+    background-color: var(--borda-hover);
 }
 
 .movimentacao {
@@ -426,7 +438,8 @@ h2 {
     margin-bottom: 12px;
     border-radius: 12px;
     background-color: #FFF;
-    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05);
+    border: 1px solid var(--borda);
+    box-shadow: 0 2px 8px rgba(120, 90, 20, 0.05);
     transition: all 0.2s ease;
     border-right: 5px solid;
     animation: entrarDeslizando 0.3s ease;   
@@ -445,7 +458,7 @@ h2 {
 
 .movimentacao:hover {
     transform: translateX(4px);
-    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+    box-shadow: 0 4px 12px rgba(120, 90, 20, 0.12);
 }
     
 .movimentacao.entrada {
@@ -487,7 +500,7 @@ h2 {
 
 /* Item que está aberto no formulário de edição */
 .movimentacao.editando {
-    background-color: #FFFBEB;
+    background-color: var(--laranja-claro);
     box-shadow: 0 0 0 2px var(--laranja-escuro);
 }
 
@@ -524,8 +537,8 @@ h2 {
 
 .btn-editar:hover,
 .btn-editar:focus-visible {
-    background-color: #FEF3C7;
-    color: #92400E;
+    background-color: var(--laranja-escuro);
+    color: var(--escuro);
     outline: none;
 }
 
@@ -557,13 +570,13 @@ h2 {
 
 /* ---------- Formulário (#17) ---------- */
 .form-container {
-    background: var(--cinza-claro);
+    background: var(--laranja-claro);
     padding: 24px;
     border-radius: 16px;
     box-shadow: var(--sombra);
     display: flex;
     flex-direction: column;
-    border: 2px solid var(--cinza-claro);
+    border: 2px solid var(--laranja-claro);
     transition:transform 1s ease, border 1s ease;
 }
 
@@ -596,7 +609,7 @@ label,
 legend {
     display: block;
     margin-bottom: 8px;
-    color: #4A5568;
+    color: #4A4234;
     font-weight: 500;
 }
 
@@ -628,15 +641,15 @@ input[type="date"] {
 input[type="text"]:hover,
 input[type="number"]:hover,
 input[type="date"]:hover {
-    border-color: #CBD5E0;
+    border-color: var(--borda-hover);
 }
 
 input[type="text"]:focus,
 input[type="number"]:focus,
 input[type="date"]:focus {
     outline: none;
-    border-color: var(--laranja-escuro);
-    box-shadow: 0 0 0 3px rgba(255, 193, 35, 0.15);
+    border-color: var(--laranja-forte);
+    box-shadow: 0 0 0 3px rgba(252, 217, 122, 0.45);
 }
 
 /* Seletor de tipo (entrada / saída) em forma de botões */
@@ -667,20 +680,29 @@ input[type="date"]:focus {
     transition: all 0.2s ease;
 }
 
+.tipo-opcao span:hover {
+    border-color: var(--borda-hover);
+}
+
+/* Selecionado: fundo claro com a cor do tipo (verde = entrada, vermelho = saída) */
+.tipo-opcao input:checked + span {
+    font-weight: 500;
+}
+
 .tipo-opcao.entrada input:checked + span {
-    border-color: var(--cor-entrada);
     background-color: #ECFDF5;
+    border-color: var(--cor-entrada);
     color: var(--cor-entrada);
 }
 
 .tipo-opcao.saida input:checked + span {
-    border-color: var(--cor-saida);
     background-color: #FEF2F2;
+    border-color: var(--cor-saida);
     color: var(--cor-saida);
 }
 
 .tipo-opcao input:focus-visible + span {
-    box-shadow: 0 0 0 3px rgba(46, 139, 87, 0.3);
+    box-shadow: 0 0 0 3px rgba(252, 217, 122, 0.6);
 }
 
 .mensagem-erro {
@@ -692,11 +714,12 @@ input[type="date"]:focus {
     font-size: 0.9rem;
 }
 
+/* Botão principal: laranja da barra do topo com texto escuro */
 button[type="submit"] {
     width: 100%;
     padding: 14px;
-    background: #FFF;
-    color: var(--texto-suave);
+    background: var(--laranja-escuro);
+    color: var(--escuro);
     border: none;
     border-radius: 8px;
     cursor: pointer;
@@ -708,11 +731,13 @@ button[type="submit"] {
     margin-top: auto;
 }
 
-button[type="submit"]:hover {
+button[type="submit"]:hover,
+button[type="submit"]:focus-visible {
     transform: translateY(-2px);
-    box-shadow: 0 6px 16px rgba(139, 133, 46, 0.25);
-    background: linear-gradient(135deg, var(--laranja-escuro) 0%, #fff051 100%);
-    color: #FFF;
+    box-shadow: 0 6px 16px rgba(120, 90, 20, 0.25);
+    background: var(--laranja-forte);
+    color: var(--escuro);
+    outline: none;
 }
 
 button[type="submit"]:active {
@@ -730,9 +755,9 @@ button[type="submit"]:active {
 .btn-cancelar {
     width: 100%;
     padding: 12px;
-    background: none;
+    background: #FFF;
     color: var(--texto-suave);
-    border: 2px solid var(--cinza-suave);
+    border: 2px solid var(--borda);
     border-radius: 8px;
     cursor: pointer;
     font-size: 0.95rem;
@@ -743,8 +768,8 @@ button[type="submit"]:active {
 
 .btn-cancelar:hover,
 .btn-cancelar:focus-visible {
-    border-color: var(--texto-suave);
-    color: var(--texto);
+    border-color: var(--escuro);
+    color: var(--escuro);
     outline: none;
 }
 
