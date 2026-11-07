@@ -10,7 +10,7 @@
  * espalhar dezenas de funções soltas no escopo global do navegador.
  *
  * Modelo de dados de uma movimentação:
- *   { id, tipo ("entrada" | "saida"), valor, data ("AAAA-MM-DD"), descricao }
+ *   { id, tipo ("entrada" | "saida"), valor, data ("AAAA-MM-DD"), descricao, dataModificacao? }
  */
 
 /* exported Regras */
@@ -59,7 +59,7 @@ const Regras = (function () {
     // ---------- Validação ----------
 
     // Retorna uma mensagem de erro, ou null se os dados estiverem válidos.
-    // Usada pelo formulário de registro.
+    // Usada pelo formulário (registrar e editar).
     function validarMovimentacao({ tipo, valor, data, descricao }) {
         if (tipo !== TIPO.ENTRADA && tipo !== TIPO.SAIDA) {
             return "Escolha se é uma entrada ou uma saída.";
@@ -92,11 +92,22 @@ const Regras = (function () {
         };
     }
 
-    // ---------- #17 Registrar ----------
+    // ---------- Criar, editar e excluir ----------
+    // Todas devolvem uma NOVA lista, sem alterar a original
 
-    // Devolve uma NOVA lista, sem alterar a original
     function adicionarMovimentacao(lista, dados, id) {
         return [...lista, { id, ...normalizarCampos(dados) }];
+    }
+
+    // Troca os campos da movimentação com esse id e registra quando foi alterada
+    function editarMovimentacao(lista, id, dados, dataModificacao) {
+        return lista.map((mov) =>
+            mov.id === id ? { ...mov, ...normalizarCampos(dados), dataModificacao } : mov
+        );
+    }
+
+    function excluirMovimentacao(lista, id) {
+        return lista.filter((mov) => mov.id !== id);
     }
 
     // ---------- #18 Saldo ----------
@@ -168,6 +179,8 @@ const Regras = (function () {
         dataValida,
         validarMovimentacao,
         adicionarMovimentacao,
+        editarMovimentacao,
+        excluirMovimentacao,
         calcularResumo,
         ordenarHistorico,
         formatarMoeda,

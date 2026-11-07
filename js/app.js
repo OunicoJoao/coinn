@@ -1,7 +1,7 @@
 /*
  * app.js
  * Lógica da interface: registrar movimentação (#17), consultar saldo (#18),
- * e ver histórico (#19).
+ * ver histórico (#19), editar e excluir (#20).
  *
  * Este arquivo só cuida da tela (ler o formulário, desenhar a lista, reagir a cliques).
  * - As regras de negócio (validar, calcular, ordenar) ficam em regras.js.
@@ -21,16 +21,23 @@ const totalEntradasEl = document.getElementById("total-entradas");
 const totalSaidasEl = document.getElementById("total-saidas");
 const listaEl = document.getElementById("lista-movimentacoes");
 const historicoVazioEl = document.getElementById("historico-vazio");
+const formContainerEl = document.getElementById("form-container");
+const tituloFormEl = document.getElementById("titulo-form");
 const formEl = document.getElementById("form-movimentacao");
 const descricaoEl = document.getElementById("descricao");
 const contadorEl = document.getElementById("contador-descricao");
 const valorEl = document.getElementById("valor");
 const dataEl = document.getElementById("data");
 const erroEl = document.getElementById("mensagem-erro");
+const btnRegistrarEl = document.getElementById("btn-registrar");
+const btnCancelarEdicaoEl = document.getElementById("btn-cancelar-edicao");
 
 // ---------- Estado ----------
 
 let movimentacoes = Armazenamento.carregarMovimentacoes();
+
+// id da movimentação sendo editada; null quando o formulário está criando uma nova
+let idEmEdicao = null;
 
 // ---------- Inicialização ----------
 
@@ -41,11 +48,16 @@ dataEl.value = hoje();
 
 formEl.addEventListener("submit", registrarMovimentacao);
 descricaoEl.addEventListener("input", atualizarContador);
+btnCancelarEdicaoEl.addEventListener("click", cancelarEdicao);
+
+// Um único listener na lista cuida dos botões de todos os itens (delegação de eventos),
+// assim não é preciso usar onclick no HTML gerado
+listaEl.addEventListener("click", tratarCliqueNaLista);
 
 atualizarContador();
 atualizarTela();
 
-// ---------- #17 Registrar movimentação ----------
+// ---------- #17 Registrar movimentação (e salvar edição) ----------
 
 function registrarMovimentacao(evento) {
     evento.preventDefault(); // evita recarregar a página
@@ -57,7 +69,9 @@ function registrarMovimentacao(evento) {
         return;
     }
 
-    const novaLista = Regras.adicionarMovimentacao(movimentacoes, dados, Date.now());
+    const novaLista = idEmEdicao !== null
+        ? Regras.editarMovimentacao(movimentacoes, idEmEdicao, dados, new Date().toISOString())
+        : Regras.adicionarMovimentacao(movimentacoes, dados, Date.now());
 
     if (!Armazenamento.salvarMovimentacoes(novaLista)) {
         mostrarErro("Não foi possível salvar. Verifique se o navegador permite armazenamento local.");
@@ -65,7 +79,7 @@ function registrarMovimentacao(evento) {
     }
 
     movimentacoes = novaLista;
-    limparFormulario();
+    sairModoEdicao();
     atualizarTela();
 }
 
@@ -85,6 +99,84 @@ function limparFormulario() {
     esconderErro();
     atualizarContador();
     descricaoEl.focus();
+}
+
+// ---------- #20 Editar movimentação ----------
+
+// Preenche o formulário com os dados da movimentação e troca para o modo de edição
+function iniciarEdicao(id) {
+    const mov = movimentacoes.find((m) => m.id === id);
+    if (!mov) return;
+
+    idEmEdicao = id;
+
+    const radioTipo = formEl.querySelector(`input[name="tipo"][value="${mov.tipo}"]`);
+    if (radioTipo) radioTipo.checked = true;
+    valorEl.value = mov.valor;
+    dataEl.value = mov.data;
+    descricaoEl.value = mov.descricao;
+
+    tituloFormEl.textContent = "Editar movimentação";
+    btnRegistrarEl.textContent = "Salvar alterações";
+    btnCancelarEdicaoEl.hidden = false;
+    formContainerEl.classList.add("editando");
+
+    esconderErro();
+    atualizarContador();
+    destacarItemEmEdicao();
+
+    // No celular o formulário pode estar fora da tela
+    formContainerEl.scrollIntoView({ behavior: "smooth", block: "nearest" });
+    valorEl.focus({ preventScroll: true });
+}
+
+function cancelarEdicao() {
+    sairModoEdicao();
+}
+
+// Volta o formulário para o modo "Nova movimentação"
+function sairModoEdicao() {
+    idEmEdicao = null;
+    tituloFormEl.textContent = "Nova movimentação";
+    btnRegistrarEl.textContent = "Registrar";
+    btnCancelarEdicaoEl.hidden = true;
+    formContainerEl.classList.remove("editando");
+    destacarItemEmEdicao();
+    limparFormulario();
+}
+
+// Marca na lista o item aberto no formulário, sem redesenhar a lista
+// (redesenhar faria a animação de entrada de todos os itens rodar de novo)
+function destacarItemEmEdicao() {
+    listaEl.querySelectorAll(".movimentacao").forEach((li) => {
+        li.classList.toggle("editando", Number(li.dataset.id) === idEmEdicao);
+    });
+}
+
+// ---------- #20 Excluir movimentação ----------
+
+function excluirMovimentacao(id) {
+    const mov = movimentacoes.find((m) => m.id === id);
+    if (!mov) return;
+
+    const confirmou = confirm(`Excluir "${mov.descricao}" (${Regras.formatarData(mov.data)})?`);
+    if (!confirmou) return;
+
+    const novaLista = Regras.excluirMovimentacao(movimentacoes, id);
+
+    if (!Armazenamento.salvarMovimentacoes(novaLista)) {
+        mostrarErro("Não foi possível excluir. Verifique se o navegador permite armazenamento local.");
+        return;
+    }
+
+    movimentacoes = novaLista;
+
+    // Se a movimentação excluída estava aberta no formulário, sai da edição
+    if (idEmEdicao === id) {
+        sairModoEdicao();
+    }
+
+    atualizarTela();
 }
 
 // ---------- #18 Consultar saldo ----------
@@ -117,6 +209,8 @@ function criarItemHistorico(mov) {
 
     const li = document.createElement("li");
     li.classList.add("movimentacao", ehEntrada ? "entrada" : "saida");
+    li.dataset.id = mov.id;
+    if (mov.id === idEmEdicao) li.classList.add("editando");
 
     const info = document.createElement("div");
     info.classList.add("movimentacao-info");
@@ -131,12 +225,48 @@ function criarItemHistorico(mov) {
 
     info.append(descricao, detalhe);
 
+    const lado = document.createElement("div");
+    lado.classList.add("movimentacao-lado");
+
     const valor = document.createElement("span");
     valor.classList.add("movimentacao-valor");
     valor.textContent = (ehEntrada ? "+ " : "- ") + Regras.formatarMoeda(mov.valor);
 
-    li.append(info, valor);
+    const acoes = document.createElement("div");
+    acoes.classList.add("movimentacao-acoes");
+    acoes.append(
+        criarBotaoAcao("editar", "✎", `Editar ${mov.descricao}`, mov.id),
+        criarBotaoAcao("excluir", "×", `Excluir ${mov.descricao}`, mov.id)
+    );
+
+    lado.append(valor, acoes);
+    li.append(info, lado);
     return li;
+}
+
+function criarBotaoAcao(acao, simbolo, rotulo, id) {
+    const botao = document.createElement("button");
+    botao.type = "button";
+    botao.classList.add("btn-acao", `btn-${acao}`);
+    botao.textContent = simbolo;
+    botao.title = rotulo;
+    botao.setAttribute("aria-label", rotulo);
+    botao.dataset.acao = acao;
+    botao.dataset.id = id;
+    return botao;
+}
+
+// Descobre qual botão foi clicado dentro da lista e chama a função certa
+function tratarCliqueNaLista(evento) {
+    const botao = evento.target.closest("button[data-acao]");
+    if (!botao) return;
+
+    const id = Number(botao.dataset.id);
+    if (botao.dataset.acao === "editar") {
+        iniciarEdicao(id);
+    } else if (botao.dataset.acao === "excluir") {
+        excluirMovimentacao(id);
+    }
 }
 
 // ---------- Utilitários da tela ----------

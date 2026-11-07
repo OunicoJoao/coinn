@@ -6,15 +6,15 @@ Projeto desenvolvido pela equipe **Ministério da Fazenda** na disciplina de Eng
 
 ## Funcionalidades
 
-Versão atual: **MVP (Sprint 3)**
+Versão atual: **MVP ampliado (Sprint 4)**
 
-- **Registrar movimentação** (#17): entrada ou saída, com valor, data e descrição.
-- **Consultar saldo** (#18): saldo atual, total de entradas e total de saídas.
-- **Ver histórico** (#19): lista das movimentações, da mais recente para a mais antiga.
+- **Registrar movimentação** (#17): entrada ou saída, com valor, data e descrição
+- **Consultar saldo** (#18): saldo atual, total de entradas e total de saídas
+- **Ver histórico** (#19): lista da movimentação mais recente para a mais antiga
+- **Editar e excluir** (#20): com confirmação antes de excluir
 
 Próximas versões:
 
-- Editar e excluir movimentações (#20)
 - Exportar relatório e fazer backup dos dados (#21)
 
 ## Como executar
@@ -64,10 +64,11 @@ Cada movimentação é salva assim:
 ```json
 {
   "id": 1792005471997,
-  "tipo": "entrada",
-  "valor": 2500.5,
-  "data": "2026-10-01",
-  "descricao": "Salário"
+  "tipo": "saida",
+  "valor": 450.5,
+  "data": "2026-10-12",
+  "descricao": "Mercado",
+  "dataModificacao": "2026-10-28T21:23:57.185Z"
 }
 ```
 
@@ -78,6 +79,7 @@ Cada movimentação é salva assim:
 | `valor` | Número positivo, de 0,01 a 999.999,99 |
 | `data` | Data no formato `AAAA-MM-DD` |
 | `descricao` | Texto de até 30 caracteres |
+| `dataModificacao` | Só existe se a movimentação foi editada: data e hora da última alteração |
 
 O saldo não é armazenado: ele é calculado a partir das movimentações sempre que a tela é atualizada.
 

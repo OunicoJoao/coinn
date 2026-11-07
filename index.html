@@ -54,8 +54,9 @@
             </section>
 
             <!-- #17 Registrar movimentação -->
-            <section class="form-container">
-                <h2>Nova movimentação</h2>
+            <!-- O mesmo formulário também é usado para Editar movimentação -->
+            <section id="form-container" class="form-container">
+                <h2 id="titulo-form">Nova movimentação</h2>
 
                 <form id="form-movimentacao" novalidate>
                     <fieldset class="form-grupo tipo-grupo">
@@ -95,7 +96,10 @@
 
                     <p id="mensagem-erro" class="mensagem-erro" role="alert" hidden></p>
 
-                    <button type="submit">Registrar</button>
+                    <div class="form-botoes">
+                        <button type="submit" id="btn-registrar">Registrar</button>
+                        <button type="button" id="btn-cancelar-edicao" class="btn-cancelar" hidden>Cancelar edição</button>
+                    </div>
                 </form>
             </section>
 
