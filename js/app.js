@@ -1,7 +1,8 @@
 /*
  * app.js
  * Lógica da interface: registrar movimentação (#17), consultar saldo (#18),
- * ver histórico (#19), editar e excluir (#20), categorias e subcategorias, filtros e limpar tudo.
+ * ver histórico (#19), editar e excluir (#20), categorias e subcategorias, filtros, limpar tudo
+ * e movimentações futuras (saldo atual x previsto).
  * Na barra do topo: mostrar/ocultar valores, modo claro/noturno e exportar/importar os dados (#21).
  *
  * Este arquivo só cuida da tela (ler o formulário, desenhar a lista, reagir a cliques).
@@ -29,6 +30,8 @@ const DURACAO_AVISO_MS = 3500;
 
 // ---------- Elementos da página ----------
 
+const saldoDetalheEl = document.getElementById("saldo-detalhe");
+const avisoDataFuturaEl = document.getElementById("aviso-data-futura");
 const saldoEl = document.getElementById("saldo");
 const totalEntradasEl = document.getElementById("total-entradas");
 const totalSaidasEl = document.getElementById("total-saidas");
@@ -94,6 +97,7 @@ dataEl.value = hoje();
 
 formEl.addEventListener("submit", registrarMovimentacao);
 descricaoEl.addEventListener("input", atualizarContador);
+dataEl.addEventListener("input", atualizarAvisoDataFutura);
 btnCancelarEdicaoEl.addEventListener("click", cancelarEdicao);
 btnLimparTudoEl.addEventListener("click", limparTudo);
 filtroTipoEl.addEventListener("change", atualizarHistorico);
@@ -171,7 +175,13 @@ function limparFormulario() {
     esconderErro();
     atualizarContador();
     atualizarSugestoesSubcategoria();
+    atualizarAvisoDataFutura();
     descricaoEl.focus();
+}
+
+// Avisa, embaixo do campo de data, quando a data escolhida é futura
+function atualizarAvisoDataFutura() {
+    avisoDataFuturaEl.hidden = !(Regras.dataValida(dataEl.value) && dataEl.value > hoje());
 }
 
 // ---------- #20 Editar movimentação ----------
@@ -199,6 +209,7 @@ function iniciarEdicao(id) {
     esconderErro();
     atualizarContador();
     atualizarSugestoesSubcategoria();
+    atualizarAvisoDataFutura();
     destacarItemEmEdicao();
 
     // No celular o formulário pode estar fora da tela
@@ -283,13 +294,46 @@ function limparTudo() {
 
 // ---------- #18 Consultar saldo ----------
 
+// Saldo atual (só o que já aconteceu) e, se houver futuras, o saldo previsto
 function atualizarResumo() {
-    const { entradas, saidas, saldo } = Regras.calcularResumo(movimentacoes);
+    const resumo = Regras.calcularResumoGeral(movimentacoes, hoje());
 
+    mostrarSaldo(resumo.saldo, resumo.entradas, resumo.saidas);
+
+    if (resumo.quantidadeFuturas > 0) {
+        const futuras = resumo.quantidadeFuturas === 1
+            ? "1 movimentação futura"
+            : `${resumo.quantidadeFuturas} movimentações futuras`;
+        mostrarDetalheSaldo([`Previsto: ${exibirValor(resumo.saldoPrevisto)}`, `com ${futuras}`]);
+    } else {
+        mostrarDetalheSaldo([]);
+    }
+}
+
+function mostrarSaldo(saldo, entradas, saidas) {
     saldoEl.textContent = exibirValor(saldo);
     saldoEl.classList.toggle("negativo", saldo < 0 && valoresVisiveis);
     totalEntradasEl.textContent = exibirValor(entradas);
     totalSaidasEl.textContent = exibirValor(saidas);
+}
+
+function mostrarDetalheSaldo(partes) {
+    saldoDetalheEl.replaceChildren(...(partes.length ? [criarLinhaDeTexto(partes)] : []));
+    saldoDetalheEl.hidden = partes.length === 0;
+}
+
+// Uma linha de texto: cada parte é um <span> que não quebra no meio, separadas por " · "
+function criarLinhaDeTexto(partes) {
+    const linha = document.createElement("span");
+    linha.classList.add("linha-texto");
+    partes.forEach((texto, indice) => {
+        if (indice > 0) linha.append(" · ");
+        const parte = document.createElement("span");
+        parte.classList.add("texto-parte");
+        parte.textContent = texto;
+        linha.append(parte);
+    });
+    return linha;
 }
 
 // ---------- #19 Ver histórico (com filtros) ----------
@@ -435,6 +479,9 @@ function criarItemHistorico(mov) {
     li.dataset.id = mov.id;
     if (mov.id === idEmEdicao) li.classList.add("editando");
 
+    const futura = Regras.ehFutura(mov, hoje());
+    if (futura) li.classList.add("futura");
+
     const info = document.createElement("div");
     info.classList.add("movimentacao-info");
 
@@ -459,6 +506,15 @@ function criarItemHistorico(mov) {
     const detalhe = document.createElement("span");
     detalhe.classList.add("movimentacao-data");
     detalhe.textContent = `${Regras.formatarData(mov.data)} · ${ehEntrada ? "Entrada" : "Saída"}`;
+
+    // Selo "Futura": ainda não conta no saldo atual
+    if (futura) {
+        const selo = document.createElement("span");
+        selo.classList.add("selo-futura");
+        selo.textContent = "Futura";
+        selo.title = "Ainda não conta no saldo atual; entra no saldo previsto";
+        detalhe.append(" · ", selo);
+    }
 
     info.append(titulo, detalhe);
 

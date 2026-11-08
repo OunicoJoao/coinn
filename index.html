@@ -115,6 +115,8 @@
             <h2>Seu saldo</h2>
             <!--&nbsp; faz com que não quebre a linha (descobri isso e ajuda muito kkk)-->
             <p id="saldo" class="saldo">R$&nbsp;0,00</p>
+            <!-- Saldo previsto: só aparece quando há movimentações futuras -->
+            <p id="saldo-detalhe" class="saldo-detalhe" hidden></p>
 
             <div class="resumo">
                 <div class="resumo-entradas">
@@ -232,7 +234,10 @@
 
                     <div class="form-grupo">
                         <label for="data">Data</label>
-                        <input type="date" id="data" required>
+                        <input type="date" id="data" required aria-describedby="aviso-data-futura">
+                        <small id="aviso-data-futura" class="aviso-campo" hidden>
+                            Data futura: entra no saldo previsto e só passa a contar no saldo atual nesse dia.
+                        </small>
                     </div>
 
                     <div class="form-grupo">
