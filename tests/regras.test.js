@@ -374,3 +374,78 @@ describe("movimentações futuras e saldo previsto", () => {
         });
     });
 });
+
+describe("visão mensal: datas", () => {
+    it("último dia do mês, inclusive fevereiro de ano bissexto", () => {
+        assert.equal(Regras.ultimoDiaDoMes("2026-11"), "2026-11-30");
+        assert.equal(Regras.ultimoDiaDoMes("2026-12"), "2026-12-31");
+        assert.equal(Regras.ultimoDiaDoMes("2026-02"), "2026-02-28");
+        assert.equal(Regras.ultimoDiaDoMes("2028-02"), "2028-02-29");
+    });
+
+    it("anda meses para frente e para trás virando o ano", () => {
+        assert.equal(Regras.deslocarMes("2026-12", 1), "2027-01");
+        assert.equal(Regras.deslocarMes("2026-01", -1), "2025-12");
+        assert.equal(Regras.deslocarMes("2026-11", 14), "2028-01");
+        assert.equal(Regras.deslocarMes("2026-11", 0), "2026-11");
+    });
+
+    it("diz se o mês é passado, atual ou futuro", () => {
+        const { SITUACAO_MES } = Regras;
+        assert.equal(Regras.situacaoDoMes("2026-10", "2026-11-03"), SITUACAO_MES.PASSADO);
+        assert.equal(Regras.situacaoDoMes("2026-11", "2026-11-03"), SITUACAO_MES.ATUAL);
+        assert.equal(Regras.situacaoDoMes("2026-12", "2026-11-03"), SITUACAO_MES.FUTURO);
+        assert.equal(Regras.situacaoDoMes("2025-12", "2026-01-01"), SITUACAO_MES.PASSADO);
+    });
+});
+
+describe("calcularResumoMensal", () => {
+    const HOJE = "2026-11-03";
+    const lista = [
+        mov({ id: 1, tipo: TIPO.ENTRADA, valor: 1000, data: "2026-10-05" }),
+        mov({ id: 2, tipo: TIPO.SAIDA, valor: 300, data: "2026-10-31" }),
+        mov({ id: 3, tipo: TIPO.ENTRADA, valor: 2000, data: "2026-11-01" }),
+        mov({ id: 4, tipo: TIPO.SAIDA, valor: 450.5, data: "2026-11-30" }),  // futura, ainda em novembro
+        mov({ id: 5, tipo: TIPO.SAIDA, valor: 99.9, data: "2026-12-01" })    // já é dezembro
+    ];
+
+    it("soma só as movimentações do mês, inclusive as futuras", () => {
+        const nov = Regras.calcularResumoMensal(lista, "2026-11", HOJE);
+        assert.equal(nov.entradas, 2000);
+        assert.equal(nov.saidas, 450.5);
+        assert.equal(nov.resultado, 1549.5);
+        assert.equal(nov.quantidade, 2);
+        assert.equal(nov.quantidadeFuturas, 1);
+    });
+
+    it("saldo inicial é o acumulado antes do dia 1, e o final vai até o último dia", () => {
+        const nov = Regras.calcularResumoMensal(lista, "2026-11", HOJE);
+        assert.equal(nov.saldoInicial, 700);          // outubro: 1000 - 300
+        assert.equal(nov.saldoFinal, 2249.5);         // 700 + 1549,50 (não inclui 01/12)
+        assert.equal(nov.saldoFinal, nov.saldoInicial + nov.resultado);
+    });
+
+    it("mês passado não tem futuras e mês sem movimentação mantém o saldo", () => {
+        const out = Regras.calcularResumoMensal(lista, "2026-10", HOJE);
+        assert.equal(out.quantidadeFuturas, 0);
+        assert.equal(out.situacao, Regras.SITUACAO_MES.PASSADO);
+
+        const jan = Regras.calcularResumoMensal(lista, "2027-01", HOJE);
+        assert.equal(jan.quantidade, 0);
+        assert.equal(jan.resultado, 0);
+        assert.equal(jan.saldoInicial, jan.saldoFinal);
+        assert.equal(jan.situacao, Regras.SITUACAO_MES.FUTURO);
+    });
+
+    it("soma centavos sem erro de ponto flutuante", () => {
+        const centavos = [
+            mov({ id: 1, tipo: TIPO.ENTRADA, valor: 0.3, data: "2026-11-01" }),
+            mov({ id: 2, tipo: TIPO.SAIDA, valor: 0.1, data: "2026-11-02" }),
+            mov({ id: 3, tipo: TIPO.SAIDA, valor: 0.2, data: "2026-11-20" })
+        ];
+        const nov = Regras.calcularResumoMensal(centavos, "2026-11", HOJE);
+        assert.equal(nov.resultado, 0);
+        assert.equal(nov.saldoFinal, 0);
+        assert.equal(Object.is(nov.saldoFinal, -0), false);
+    });
+});

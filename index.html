@@ -110,21 +110,41 @@
 
     <main class="container">
 
+        <!-- Visão: Geral (tudo) ou Mensal (um mês por vez) -->
+        <div class="visao-barra">
+            <div class="visao-abas" role="group" aria-label="Visão do saldo">
+                <button type="button" class="visao-aba" data-visao="geral" aria-pressed="true">Geral</button>
+                <button type="button" class="visao-aba" data-visao="mensal" aria-pressed="false">Mensal</button>
+            </div>
+
+            <!-- Só aparece na visão mensal -->
+            <div id="navegador-mes" class="navegador-mes" hidden>
+                <button type="button" id="btn-mes-anterior" class="btn-mes" aria-label="Mês anterior" title="Mês anterior">
+                    <svg class="icone" viewBox="0 0 24 24" aria-hidden="true"><path d="M15 6l-6 6 6 6"/></svg>
+                </button>
+                <span id="mes-visao" class="mes-visao" aria-live="polite"></span>
+                <button type="button" id="btn-mes-proximo" class="btn-mes" aria-label="Próximo mês" title="Próximo mês">
+                    <svg class="icone" viewBox="0 0 24 24" aria-hidden="true"><path d="M9 6l6 6-6 6"/></svg>
+                </button>
+                <button type="button" id="btn-mes-atual" class="btn-link btn-mes-atual" hidden>Mês atual</button>
+            </div>
+        </div>
+
         <!-- #18 Consultar saldo -->
         <section class="saldo-container" aria-label="Resumo">
-            <h2>Seu saldo</h2>
+            <h2 id="titulo-saldo">Seu saldo</h2>
             <!--&nbsp; faz com que não quebre a linha (descobri isso e ajuda muito kkk)-->
             <p id="saldo" class="saldo">R$&nbsp;0,00</p>
-            <!-- Saldo previsto: só aparece quando há movimentações futuras -->
+            <!-- Geral: saldo previsto com as futuras | Mensal: saldo no início e resultado do mês -->
             <p id="saldo-detalhe" class="saldo-detalhe" hidden></p>
 
             <div class="resumo">
                 <div class="resumo-entradas">
-                    <h3>Entradas</h3>
+                    <h3 id="titulo-entradas">Entradas</h3>
                     <p id="total-entradas">R$&nbsp;0,00</p>
                 </div>
                 <div class="resumo-saidas">
-                    <h3>Saídas</h3>
+                    <h3 id="titulo-saidas">Saídas</h3>
                     <p id="total-saidas">R$&nbsp;0,00</p>
                 </div>
             </div>
@@ -150,7 +170,8 @@
                             <option value="saida">Saídas</option>
                         </select>
                     </div>
-                    <div class="filtro">
+                    <!-- Na visão mensal este filtro some: o mês é o escolhido lá em cima -->
+                    <div class="filtro" id="filtro-mes-grupo">
                         <label for="filtro-mes">Mês</label>
                         <select id="filtro-mes">
                             <!--Opções de mês adicionadas via Javascript-->

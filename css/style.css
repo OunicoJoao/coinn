@@ -379,6 +379,94 @@ h2 {
     font-weight: 500;
 }
 
+/* ---------- Visão Geral / Mensal ---------- */
+
+.visao-barra {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    flex-wrap: wrap;
+    gap: 12px;
+    margin-bottom: 20px;
+}
+
+/* Abas em forma de "botões grudados" */
+.visao-abas {
+    display: inline-flex;
+    gap: 4px;
+    padding: 4px;
+    border-radius: 12px;
+    background-color: var(--destaque-fundo);
+    border: 1px solid var(--borda);
+}
+
+.visao-aba {
+    padding: 8px 20px;
+    border: none;
+    border-radius: 8px;
+    background: none;
+    color: var(--texto-suave);
+    font-family: inherit;
+    font-size: 0.95rem;
+    font-weight: 500;
+    cursor: pointer;
+    transition: all 0.2s ease;
+}
+
+.visao-aba:hover {
+    color: var(--texto-forte);
+}
+
+.visao-aba:focus-visible {
+    outline: none;
+    box-shadow: 0 0 0 3px var(--foco-anel);
+}
+
+/* Aba escolhida: mesma cor do botão principal (laranja no claro, roxo no noturno) */
+.visao-aba[aria-pressed="true"] {
+    background-color: var(--destaque);
+    color: var(--texto-sobre-destaque);
+    box-shadow: var(--sombra-item);
+}
+
+/* ‹ Novembro de 2026 › */
+.navegador-mes {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.btn-mes {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 36px;
+    height: 36px;
+    border: 1px solid var(--borda);
+    border-radius: 8px;
+    background-color: var(--superficie);
+    color: var(--texto-forte);
+    cursor: pointer;
+    transition: all 0.2s ease;
+}
+
+.btn-mes:hover,
+.btn-mes:focus-visible {
+    border-color: var(--destaque);
+    outline: none;
+}
+
+.mes-visao {
+    min-width: 170px;
+    text-align: center;
+    font-weight: 600;
+    color: var(--texto-forte);
+}
+
+.btn-mes-atual {
+    margin-left: 4px;
+}
+
 /* ---------- Saldo (#18) ---------- */
 
 /* Mesmo fundo de destaque do formulário de nova movimentação */
@@ -409,14 +497,14 @@ h2 {
     color: var(--perigo);
 }
 
-/* Linha embaixo do saldo: "Previsto: ... · com N movimentações futuras" */
+/* Linha embaixo do saldo: "Previsto: ..." (geral) ou "Início do mês ... · Resultado ..." (mensal) */
 .saldo-detalhe {
     margin: -8px 0 4px;
     font-size: 0.95rem;
     color: var(--texto-suave);
 }
 
-/* Partes de uma linha de texto que não devem quebrar no meio (ex.: "Previsto: R$ 2.149,50") */
+/* Partes de uma linha de texto que não devem quebrar no meio (ex.: "Início do mês: R$ 700,00") */
 .texto-parte {
     white-space: nowrap;
 }
@@ -525,6 +613,11 @@ h2 {
 
 .filtro {
     min-width: 0;
+}
+
+/* Na visão mensal o filtro de mês some: os três que sobram ficam numa linha só */
+.filtros:has(> #filtro-mes-grupo[hidden]) {
+    grid-template-columns: repeat(3, 1fr);
 }
 
 /* Subcategoria fica desativada até escolher uma categoria */
@@ -1069,6 +1162,29 @@ button[type="submit"]:active {
 
     .logo h1 {
         font-size: 1.4rem;
+    }
+
+    .filtros:has(> #filtro-mes-grupo[hidden]) {
+        grid-template-columns: 1fr 1fr;
+    }
+
+    /* No celular, abas e navegador de meses ocupam a largura toda */
+    .visao-abas {
+        width: 100%;
+    }
+
+    .visao-aba {
+        flex: 1;
+    }
+
+    .navegador-mes {
+        width: 100%;
+        justify-content: space-between;
+    }
+
+    .mes-visao {
+        min-width: 0;
+        flex: 1;
     }
 
     /* No celular o botão de dados fica só com o ícone */

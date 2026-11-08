@@ -1,8 +1,8 @@
 /*
  * app.js
  * Lógica da interface: registrar movimentação (#17), consultar saldo (#18),
- * ver histórico (#19), editar e excluir (#20), categorias e subcategorias, filtros, limpar tudo
- * e movimentações futuras (saldo atual x previsto).
+ * ver histórico (#19), editar e excluir (#20), categorias e subcategorias, filtros e limpar tudo,
+ * movimentações futuras (saldo atual x previsto) e visão Geral / Mensal.
  * Na barra do topo: mostrar/ocultar valores, modo claro/noturno e exportar/importar os dados (#21).
  *
  * Este arquivo só cuida da tela (ler o formulário, desenhar a lista, reagir a cliques).
@@ -14,7 +14,13 @@
 
 // ---------- Constantes ----------
 
-const { TIPO, LIMITES, FILTRO_TODOS, FILTRO_SEM } = Regras;
+const { TIPO, LIMITES, FILTRO_TODOS, FILTRO_SEM, SITUACAO_MES } = Regras;
+
+// Visões do topo da página
+const VISAO = Object.freeze({
+    GERAL: "geral",   // todas as movimentações; saldo atual + previsto
+    MENSAL: "mensal"  // um mês por vez, escolhido no navegador de meses
+});
 
 // Texto mostrado no lugar dos valores quando o "olho" está fechado
 const VALOR_OCULTO = "R$ •••••";
@@ -30,7 +36,17 @@ const DURACAO_AVISO_MS = 3500;
 
 // ---------- Elementos da página ----------
 
+const abasVisaoEl = document.querySelector(".visao-abas");
+const navegadorMesEl = document.getElementById("navegador-mes");
+const mesVisaoEl = document.getElementById("mes-visao");
+const btnMesAnteriorEl = document.getElementById("btn-mes-anterior");
+const btnMesProximoEl = document.getElementById("btn-mes-proximo");
+const btnMesAtualEl = document.getElementById("btn-mes-atual");
+const tituloSaldoEl = document.getElementById("titulo-saldo");
 const saldoDetalheEl = document.getElementById("saldo-detalhe");
+const tituloEntradasEl = document.getElementById("titulo-entradas");
+const tituloSaidasEl = document.getElementById("titulo-saidas");
+const filtroMesGrupoEl = document.getElementById("filtro-mes-grupo");
 const avisoDataFuturaEl = document.getElementById("aviso-data-futura");
 const saldoEl = document.getElementById("saldo");
 const totalEntradasEl = document.getElementById("total-entradas");
@@ -77,6 +93,10 @@ let movimentacoes = Armazenamento.carregarMovimentacoes().map(Regras.normalizarM
 // id da movimentação sendo editada; null quando o formulário está criando uma nova
 let idEmEdicao = null;
 
+// Visão escolhida nas abas e o mês mostrado na visão mensal ("AAAA-MM")
+let visao = VISAO.GERAL;
+let mesVisao = mesDeHoje();
+
 // true = valores aparecem; false = aparecem como "R$ •••••"
 let valoresVisiveis = Armazenamento.carregarValoresVisiveis();
 
@@ -109,6 +129,12 @@ filtroCategoriaEl.addEventListener("change", () => {
 filtroSubcategoriaEl.addEventListener("change", atualizarHistorico);
 categoriaEl.addEventListener("input", atualizarSugestoesSubcategoria);
 btnLimparFiltrosEl.addEventListener("click", limparFiltros);
+
+// Visão Geral / Mensal e navegação entre meses
+abasVisaoEl.addEventListener("click", trocarVisao);
+btnMesAnteriorEl.addEventListener("click", () => irParaMes(Regras.deslocarMes(mesVisao, -1)));
+btnMesProximoEl.addEventListener("click", () => irParaMes(Regras.deslocarMes(mesVisao, 1)));
+btnMesAtualEl.addEventListener("click", () => irParaMes(mesDeHoje()));
 
 // Um único listener na lista cuida dos botões de todos os itens (delegação de eventos),
 // assim não é preciso usar onclick no HTML gerado
@@ -294,10 +320,21 @@ function limparTudo() {
 
 // ---------- #18 Consultar saldo ----------
 
-// Saldo atual (só o que já aconteceu) e, se houver futuras, o saldo previsto
 function atualizarResumo() {
+    if (visao === VISAO.MENSAL) {
+        atualizarResumoMensal();
+    } else {
+        atualizarResumoGeral();
+    }
+}
+
+// Geral: saldo atual (só o que já aconteceu) e, se houver futuras, o saldo previsto
+function atualizarResumoGeral() {
     const resumo = Regras.calcularResumoGeral(movimentacoes, hoje());
 
+    tituloSaldoEl.textContent = "Seu saldo";
+    tituloEntradasEl.textContent = "Entradas";
+    tituloSaidasEl.textContent = "Saídas";
     mostrarSaldo(resumo.saldo, resumo.entradas, resumo.saidas);
 
     if (resumo.quantidadeFuturas > 0) {
@@ -308,6 +345,25 @@ function atualizarResumo() {
     } else {
         mostrarDetalheSaldo([]);
     }
+}
+
+// Mensal: entradas e saídas do mês, saldo no fim do mês (previsto se o mês não acabou)
+function atualizarResumoMensal() {
+    const resumo = Regras.calcularResumoMensal(movimentacoes, mesVisao, hoje());
+    const nomeMes = Regras.formatarMes(mesVisao).split(" ")[0].toLowerCase();
+
+    tituloSaldoEl.textContent = resumo.situacao === SITUACAO_MES.PASSADO
+        ? `Saldo no fim de ${nomeMes}`
+        : `Previsto para o fim de ${nomeMes}`;
+    tituloEntradasEl.textContent = "Entradas do mês";
+    tituloSaidasEl.textContent = "Saídas do mês";
+    mostrarSaldo(resumo.saldoFinal, resumo.entradas, resumo.saidas);
+
+    const sinal = resumo.resultado > 0 ? "+" : "";
+    mostrarDetalheSaldo([
+        `Início do mês: ${exibirValor(resumo.saldoInicial)}`,
+        `Resultado do mês: ${valoresVisiveis ? sinal : ""}${exibirValor(resumo.resultado)}`
+    ]);
 }
 
 function mostrarSaldo(saldo, entradas, saidas) {
@@ -336,6 +392,39 @@ function criarLinhaDeTexto(partes) {
     return linha;
 }
 
+// ---------- Visão Geral / Mensal ----------
+
+function trocarVisao(evento) {
+    const aba = evento.target.closest("[data-visao]");
+    if (!aba || aba.dataset.visao === visao) return;
+
+    visao = aba.dataset.visao;
+    if (visao === VISAO.MENSAL) {
+        mesVisao = mesDeHoje(); // ao entrar na visão mensal, começa no mês de hoje
+    }
+    atualizarTela();
+}
+
+function irParaMes(anoMes) {
+    mesVisao = anoMes;
+    atualizarTela();
+}
+
+// Abas, navegador de meses e filtro de mês de acordo com a visão escolhida
+function atualizarVisao() {
+    const mensal = visao === VISAO.MENSAL;
+
+    abasVisaoEl.querySelectorAll("[data-visao]").forEach((aba) => {
+        aba.setAttribute("aria-pressed", String(aba.dataset.visao === visao));
+    });
+    navegadorMesEl.hidden = !mensal;
+    mesVisaoEl.textContent = Regras.formatarMes(mesVisao);
+    btnMesAtualEl.hidden = mesVisao === mesDeHoje();
+
+    // Na visão mensal, o mês já é o do navegador: o filtro de mês do histórico some
+    filtroMesGrupoEl.hidden = mensal;
+}
+
 // ---------- #19 Ver histórico (com filtros) ----------
 
 function atualizarHistorico() {
@@ -351,26 +440,38 @@ function atualizarHistorico() {
     visiveis.forEach((mov) => listaEl.appendChild(criarItemHistorico(mov)));
 
     historicoVazioEl.hidden = visiveis.length > 0;
-    historicoVazioEl.textContent = temMovimentacoes
-        ? "Nenhuma movimentação encontrada com esses filtros."
-        : "Nenhuma movimentação registrada ainda.";
+    historicoVazioEl.textContent = mensagemHistoricoVazio(temMovimentacoes, filtros);
 
     atualizarTotalFiltrado(filtros, visiveis);
+}
+
+function mensagemHistoricoVazio(temMovimentacoes, filtros) {
+    if (!temMovimentacoes) return "Nenhuma movimentação registrada ainda.";
+    if (visao === VISAO.MENSAL && !Regras.filtroAtivo(filtrosSemMes(filtros))) {
+        return `Nenhuma movimentação em ${Regras.formatarMes(mesVisao)}.`;
+    }
+    return "Nenhuma movimentação encontrada com esses filtros.";
 }
 
 function lerFiltros() {
     return {
         tipo: filtroTipoEl.value,
-        mes: filtroMesEl.value,
+        // Na visão mensal o mês vem do navegador de meses, não do select
+        mes: visao === VISAO.MENSAL ? mesVisao : filtroMesEl.value,
         categoria: filtroCategoriaEl.value,
         subcategoria: filtroSubcategoriaEl.value
     };
 }
 
+// Os mesmos filtros, ignorando o mês (na visão mensal o mês não conta como "filtro ativo")
+function filtrosSemMes(filtros) {
+    return { ...filtros, mes: FILTRO_TODOS.MES };
+}
+
 // Com algum filtro ativo, mostra o total só das movimentações que aparecem na lista.
-// O saldo do topo continua sendo o geral.
+// O saldo do topo não muda com os filtros.
 function atualizarTotalFiltrado(filtros, visiveis) {
-    const ativo = Regras.filtroAtivo(filtros);
+    const ativo = Regras.filtroAtivo(visao === VISAO.MENSAL ? filtrosSemMes(filtros) : filtros);
     btnLimparFiltrosEl.hidden = !ativo;
 
     if (!ativo || visiveis.length === 0) {
@@ -743,6 +844,7 @@ function mostrarAviso(mensagem, tipo = "sucesso") {
 // ---------- Utilitários da tela ----------
 
 function atualizarTela() {
+    atualizarVisao();
     atualizarResumo();
     atualizarOpcoesMes();
     atualizarOpcoesCategoria();
@@ -766,4 +868,9 @@ function esconderErro() {
 
 function hoje() {
     return Regras.dataISO(new Date());
+}
+
+// "AAAA-MM" de hoje
+function mesDeHoje() {
+    return hoje().slice(0, 7);
 }
