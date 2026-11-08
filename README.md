@@ -18,6 +18,7 @@ Versão atual: **MVP ampliado (Sprint 4)**
 - **Modo noturno**: botão de lua/sol na barra do topo alterna entre o tema claro (laranja) e o noturno (roxo, cinza e preto); a escolha fica salva
 - **Categorias e subcategorias** (#57): texto livre e opcional (ex.: Alimentação › Mercado), com sugestões do que já foi usado
 - **Filtros do histórico** (#58): por tipo, mês, categoria e subcategoria, combináveis, com o total do período filtrado
+- **Movimentações futuras**: com data depois de hoje, não entram no saldo atual, só no **saldo previsto**; no dia da data passam a contar sozinhas
 
 ## Como executar
 
@@ -81,7 +82,7 @@ Cada movimentação é salva assim:
 | `subcategoria` | Texto livre e opcional, até 20 caracteres. Só existe se houver categoria |
 | `dataModificacao` | Só existe se a movimentação foi editada: data e hora da última alteração |
 
-O saldo não é armazenado: ele é calculado a partir das movimentações sempre que a tela é atualizada.
+O saldo não é armazenado: ele é calculado a partir das movimentações sempre que a tela é atualizada. Movimentações com data depois de hoje entram só no saldo previsto.
 
 ## Estrutura do projeto
 

@@ -409,6 +409,18 @@ h2 {
     color: var(--perigo);
 }
 
+/* Linha embaixo do saldo: "Previsto: ... · com N movimentações futuras" */
+.saldo-detalhe {
+    margin: -8px 0 4px;
+    font-size: 0.95rem;
+    color: var(--texto-suave);
+}
+
+/* Partes de uma linha de texto que não devem quebrar no meio (ex.: "Previsto: R$ 2.149,50") */
+.texto-parte {
+    white-space: nowrap;
+}
+
 .resumo {
     display: grid;
     grid-template-columns: 1fr 1fr;
@@ -694,6 +706,29 @@ h2 {
     color: var(--cor-saida);
 }
 
+/* Movimentação futura: borda tracejada e texto um pouco apagado, porque ainda não aconteceu */
+.movimentacao.futura {
+    border-top-style: dashed;
+    border-bottom-style: dashed;
+    border-left-style: dashed;
+}
+
+.movimentacao.futura .movimentacao-info,
+.movimentacao.futura .movimentacao-valor {
+    opacity: 0.8;
+}
+
+.selo-futura {
+    display: inline-block;
+    padding: 0 7px;
+    border: 1px dashed var(--texto-suave);
+    border-radius: 999px;
+    font-size: 0.72rem;
+    font-weight: 500;
+    line-height: 1.5;
+    color: var(--texto-suave);
+}
+
 /* Item que está aberto no formulário de edição */
 .movimentacao.editando {
     background-color: var(--destaque-fundo);
@@ -829,6 +864,14 @@ legend {
 .label-linha small {
     color: var(--texto-suave);
     font-size: 0.85rem;
+}
+
+/* Aviso embaixo de um campo (ex.: data futura) */
+.aviso-campo {
+    display: block;
+    margin-top: 6px;
+    font-size: 0.82rem;
+    color: var(--texto-suave);
 }
 
 input[type="text"],

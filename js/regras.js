@@ -10,6 +10,12 @@
  * Padrão de projeto: Module. Tudo fica dentro do objeto "Regras", em vez de
  * espalhar dezenas de funções soltas no escopo global do navegador.
  *
+ * Movimentações futuras: uma movimentação com data depois de hoje é "futura".
+ * Ela não entra no saldo atual (o dinheiro ainda não entrou/saiu), mas entra no
+ * saldo previsto. No dia da data, passa a contar no saldo atual sozinha.
+ * As funções que dependem do dia recebem "hoje" como parâmetro ("AAAA-MM-DD"),
+ * para continuarem puras e testáveis.
+ *
  * Modelo de dados de uma movimentação:
  *   { id, tipo ("entrada" | "saida"), valor, data ("AAAA-MM-DD"), descricao,
  *     categoria, subcategoria, dataModificacao? }
@@ -237,6 +243,25 @@ const Regras = (function () {
         };
     }
 
+    // ---------- Movimentações futuras e saldo previsto ----------
+
+    // Futura = data depois de hoje. Comparar texto funciona porque o formato é AAAA-MM-DD.
+    function ehFutura(mov, hoje) {
+        return mov.data > hoje;
+    }
+
+    // Visão geral:
+    // - entradas, saídas e saldo: só o que já aconteceu (data até hoje)
+    // - saldoPrevisto: inclui também as futuras
+    function calcularResumoGeral(lista, hoje) {
+        const realizadas = lista.filter((mov) => !ehFutura(mov, hoje));
+        return {
+            ...calcularResumo(realizadas),
+            saldoPrevisto: calcularResumo(lista).saldo,
+            quantidadeFuturas: lista.length - realizadas.length
+        };
+    }
+
     // ---------- #19 Histórico: filtros e ordenação ----------
 
     // Filtro que não foi informado vale como "todos"
@@ -412,6 +437,8 @@ const Regras = (function () {
         editarMovimentacao,
         excluirMovimentacao,
         calcularResumo,
+        ehFutura,
+        calcularResumoGeral,
         categoriaEspecifica,
         filtrarMovimentacoes,
         filtroAtivo,

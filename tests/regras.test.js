@@ -337,3 +337,40 @@ describe("formatação", () => {
         assert.equal(Regras.dataISO(new Date(2026, 0, 5, 23, 30)), "2026-01-05");
     });
 });
+
+describe("movimentações futuras e saldo previsto", () => {
+    const HOJE = "2026-11-03";
+    const lista = [
+        mov({ id: 1, tipo: TIPO.ENTRADA, valor: 3000, data: "2026-11-01" }),
+        mov({ id: 2, tipo: TIPO.SAIDA, valor: 200, data: HOJE }),            // hoje conta no saldo atual
+        mov({ id: 3, tipo: TIPO.SAIDA, valor: 500, data: "2026-11-04" }),    // amanhã: futura
+        mov({ id: 4, tipo: TIPO.ENTRADA, valor: 100, data: "2027-01-10" })   // futura em outro ano
+    ];
+
+    it("futura é só a data depois de hoje", () => {
+        assert.equal(Regras.ehFutura(mov({ data: "2026-11-04" }), HOJE), true);
+        assert.equal(Regras.ehFutura(mov({ data: HOJE }), HOJE), false);
+        assert.equal(Regras.ehFutura(mov({ data: "2026-10-31" }), HOJE), false);
+    });
+
+    it("saldo atual ignora as futuras; o previsto inclui", () => {
+        const resumo = Regras.calcularResumoGeral(lista, HOJE);
+        assert.equal(resumo.entradas, 3000);
+        assert.equal(resumo.saidas, 200);
+        assert.equal(resumo.saldo, 2800);
+        assert.equal(resumo.saldoPrevisto, 2400);
+        assert.equal(resumo.quantidadeFuturas, 2);
+    });
+
+    it("sem futuras, o previsto é igual ao atual", () => {
+        const resumo = Regras.calcularResumoGeral(lista.slice(0, 2), HOJE);
+        assert.equal(resumo.saldoPrevisto, resumo.saldo);
+        assert.equal(resumo.quantidadeFuturas, 0);
+    });
+
+    it("lista vazia dá tudo zero", () => {
+        assert.deepEqual(Regras.calcularResumoGeral([], HOJE), {
+            entradas: 0, saidas: 0, saldo: 0, saldoPrevisto: 0, quantidadeFuturas: 0
+        });
+    });
+});
