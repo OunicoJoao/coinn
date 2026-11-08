@@ -55,6 +55,13 @@ const Regras = (function () {
     // Valor do filtro para "Sem categoria" / "Sem subcategoria"
     const FILTRO_SEM = "__sem__";
 
+    // Situação de um mês em relação a hoje (usado na visão mensal)
+    const SITUACAO_MES = Object.freeze({
+        PASSADO: "passado",
+        ATUAL: "atual",
+        FUTURO: "futuro"
+    });
+
     // Versão do formato do arquivo exportado.
     // v1: sem categoria | v2: com categoria e subcategoria (arquivos v1 continuam aceitos)
     const VERSAO_EXPORTACAO = 2;
@@ -262,6 +269,55 @@ const Regras = (function () {
         };
     }
 
+    // ---------- Visão mensal ----------
+
+    // "2026-02" -> "2026-02-28" (considera ano bissexto)
+    function ultimoDiaDoMes(anoMes) {
+        const [ano, mes] = anoMes.split("-").map(Number);
+        // Dia 0 do mês seguinte = último dia deste mês
+        const dia = new Date(Date.UTC(ano, mes, 0)).getUTCDate();
+        return `${anoMes}-${String(dia).padStart(2, "0")}`;
+    }
+
+    // Anda meses para frente (positivo) ou para trás (negativo): ("2026-12", 1) -> "2027-01"
+    function deslocarMes(anoMes, quantidade) {
+        const [ano, mes] = anoMes.split("-").map(Number);
+        const total = ano * 12 + (mes - 1) + quantidade;
+        const novoAno = Math.floor(total / 12);
+        const novoMes = (total % 12) + 1;
+        return `${novoAno}-${String(novoMes).padStart(2, "0")}`;
+    }
+
+    // O mês já terminou, é o mês de hoje ou ainda vai chegar?
+    function situacaoDoMes(anoMes, hoje) {
+        const mesDeHoje = hoje.slice(0, 7);
+        if (anoMes < mesDeHoje) return SITUACAO_MES.PASSADO;
+        if (anoMes > mesDeHoje) return SITUACAO_MES.FUTURO;
+        return SITUACAO_MES.ATUAL;
+    }
+
+    // Resumo de um mês ("AAAA-MM"):
+    // - entradas, saídas e resultado: só as movimentações do mês (inclusive as futuras)
+    // - saldoInicial: saldo acumulado antes do dia 1 do mês
+    // - saldoFinal: saldo acumulado até o último dia do mês (previsto, se o mês não acabou)
+    function calcularResumoMensal(lista, anoMes, hoje) {
+        const primeiroDia = `${anoMes}-01`;
+        const ultimoDia = ultimoDiaDoMes(anoMes);
+        const doMes = lista.filter((mov) => mov.data.startsWith(anoMes));
+        const { entradas, saidas, saldo } = calcularResumo(doMes);
+
+        return {
+            entradas,
+            saidas,
+            resultado: saldo,
+            saldoInicial: calcularResumo(lista.filter((mov) => mov.data < primeiroDia)).saldo,
+            saldoFinal: calcularResumo(lista.filter((mov) => mov.data <= ultimoDia)).saldo,
+            quantidade: doMes.length,
+            quantidadeFuturas: doMes.filter((mov) => ehFutura(mov, hoje)).length,
+            situacao: situacaoDoMes(anoMes, hoje)
+        };
+    }
+
     // ---------- #19 Histórico: filtros e ordenação ----------
 
     // Filtro que não foi informado vale como "todos"
@@ -422,6 +478,7 @@ const Regras = (function () {
         LIMITES,
         FILTRO_TODOS,
         FILTRO_SEM,
+        SITUACAO_MES,
         arredondarCentavos,
         dataValida,
         validarMovimentacao,
@@ -439,6 +496,10 @@ const Regras = (function () {
         calcularResumo,
         ehFutura,
         calcularResumoGeral,
+        ultimoDiaDoMes,
+        deslocarMes,
+        situacaoDoMes,
+        calcularResumoMensal,
         categoriaEspecifica,
         filtrarMovimentacoes,
         filtroAtivo,

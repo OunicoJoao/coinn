@@ -19,6 +19,7 @@ Versão atual: **MVP ampliado (Sprint 4)**
 - **Categorias e subcategorias** (#57): texto livre e opcional (ex.: Alimentação › Mercado), com sugestões do que já foi usado
 - **Filtros do histórico** (#58): por tipo, mês, categoria e subcategoria, combináveis, com o total do período filtrado
 - **Movimentações futuras**: com data depois de hoje, não entram no saldo atual, só no **saldo previsto**; no dia da data passam a contar sozinhas
+- **Visão Geral e Mensal**: a Geral mostra tudo; a Mensal mostra um mês por vez (‹ Novembro de 2026 ›), com entradas e saídas do mês, saldo no início e saldo previsto para o fim do mês
 
 ## Como executar
 
