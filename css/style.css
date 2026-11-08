@@ -51,6 +51,9 @@
     --aviso-fundo: var(--escuro);
     --aviso-erro-fundo: #991B1B;
 
+    --cor-selecao: #C98A12;               /* caixinha e contorno das movimentações selecionadas */
+    --perigo-botao: #DC2626;              /* botão "Excluir selecionadas" (texto branco) */
+
     --sombra: 0 4px 14px rgba(120, 90, 20, 0.10);
     --sombra-container: 0 12px 32px rgba(120, 90, 20, 0.08);
     --sombra-item: 0 2px 8px rgba(120, 90, 20, 0.05);
@@ -104,6 +107,9 @@
 
     --aviso-fundo: #2E2738;
     --aviso-erro-fundo: #B91C1C;
+
+    --cor-selecao: var(--roxo-claro);
+    --perigo-botao: #B91C1C;
 
     --sombra: 0 4px 14px rgba(0, 0, 0, 0.35);
     --sombra-container: 0 12px 32px rgba(0, 0, 0, 0.45);
@@ -822,6 +828,71 @@ h2 {
     color: var(--texto-suave);
 }
 
+/* Seleção de várias movimentações */
+.barra-selecao {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    flex-wrap: wrap;
+    gap: 8px 12px;
+    margin-bottom: 12px;
+    padding: 8px 12px;
+    border-radius: 8px;
+    border: 1px solid var(--cor-selecao);
+    background-color: var(--destaque-fundo);
+    animation: abrirMenu 0.15s ease;
+}
+
+.selecao-resumo {
+    font-size: 0.9rem;
+    font-weight: 500;
+    color: var(--texto-forte);
+}
+
+.barra-selecao-acoes {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    margin-left: auto;
+}
+
+.barra-selecao .btn-link {
+    margin-left: 0;
+}
+
+.btn-excluir-selecionadas {
+    padding: 6px 14px;
+    border: none;
+    border-radius: 8px;
+    background-color: var(--perigo-botao);
+    color: #FFF;
+    font-family: inherit;
+    font-size: 0.9rem;
+    font-weight: 500;
+    cursor: pointer;
+    transition: all 0.2s ease;
+}
+
+.btn-excluir-selecionadas:hover,
+.btn-excluir-selecionadas:focus-visible {
+    filter: brightness(0.9);
+    outline: none;
+    box-shadow: 0 0 0 3px var(--perigo-fundo);
+}
+
+.caixa-selecao {
+    width: 18px;
+    height: 18px;
+    margin: 0 4px 0 6px;
+    accent-color: var(--cor-selecao);
+    cursor: pointer;
+}
+
+.movimentacao.selecionada {
+    background-color: var(--destaque-fundo);
+    box-shadow: 0 0 0 2px var(--cor-selecao);
+}
+
 /* Item que está aberto no formulário de edição */
 .movimentacao.editando {
     background-color: var(--destaque-fundo);
@@ -838,6 +909,7 @@ h2 {
 
 .movimentacao-acoes {
     display: flex;
+    align-items: center;
     gap: 2px;
     transition: opacity 0.2s ease;
 }
@@ -887,7 +959,8 @@ h2 {
 
     .movimentacao:hover .movimentacao-acoes,
     .movimentacao:focus-within .movimentacao-acoes,
-    .movimentacao.editando .movimentacao-acoes {
+    .movimentacao.editando .movimentacao-acoes,
+    .modo-selecao .movimentacao-acoes {
         opacity: 1;
     }
 }

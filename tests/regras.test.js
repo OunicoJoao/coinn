@@ -449,3 +449,21 @@ describe("calcularResumoMensal", () => {
         assert.equal(Object.is(nov.saldoFinal, -0), false);
     });
 });
+
+describe("excluirMovimentacoes (seleção múltipla)", () => {
+    const lista = [mov({ id: 1 }), mov({ id: 2 }), mov({ id: 3 }), mov({ id: 4 })];
+
+    it("exclui só as selecionadas e não altera a lista original", () => {
+        const nova = Regras.excluirMovimentacoes(lista, [2, 4]);
+        assert.deepEqual(ids(nova), [1, 3]);
+        assert.equal(lista.length, 4);
+    });
+
+    it("aceita um Set e ignora ids que não existem", () => {
+        assert.deepEqual(ids(Regras.excluirMovimentacoes(lista, new Set([1, 99]))), [2, 3, 4]);
+    });
+
+    it("sem nada selecionado, não exclui nada", () => {
+        assert.deepEqual(ids(Regras.excluirMovimentacoes(lista, [])), [1, 2, 3, 4]);
+    });
+});

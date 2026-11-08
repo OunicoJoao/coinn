@@ -12,6 +12,7 @@ Versão atual: **MVP ampliado (Sprint 4)**
 - **Consultar saldo** (#18): saldo atual, total de entradas e total de saídas
 - **Ver histórico** (#19): lista da movimentação mais recente para a mais antiga
 - **Editar e excluir** (#20): com confirmação antes de excluir
+- **Excluir várias**: caixinha de seleção em cada movimentação do histórico, com "Selecionar todas" e "Excluir selecionadas" (com confirmação)
 - **Limpar tudo** (#59): apaga todas as movimentações, com confirmação
 - **Exportar e importar** (#21): cópia de segurança em arquivo `.json`
 - **Ocultar valores** (#56): botão de olho para usar o Coinn em público

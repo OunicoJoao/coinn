@@ -2,7 +2,8 @@
  * app.js
  * Lógica da interface: registrar movimentação (#17), consultar saldo (#18),
  * ver histórico (#19), editar e excluir (#20), categorias e subcategorias, filtros e limpar tudo,
- * movimentações futuras (saldo atual x previsto) e visão Geral / Mensal.
+ * movimentações futuras (saldo atual x previsto), visão Geral / Mensal
+ * e seleção de várias movimentações para excluir de uma vez.
  * Na barra do topo: mostrar/ocultar valores, modo claro/noturno e exportar/importar os dados (#21).
  *
  * Este arquivo só cuida da tela (ler o formulário, desenhar a lista, reagir a cliques).
@@ -48,6 +49,11 @@ const tituloEntradasEl = document.getElementById("titulo-entradas");
 const tituloSaidasEl = document.getElementById("titulo-saidas");
 const filtroMesGrupoEl = document.getElementById("filtro-mes-grupo");
 const avisoDataFuturaEl = document.getElementById("aviso-data-futura");
+const barraSelecaoEl = document.getElementById("barra-selecao");
+const selecaoResumoEl = document.getElementById("selecao-resumo");
+const btnSelecionarTodasEl = document.getElementById("btn-selecionar-todas");
+const btnCancelarSelecaoEl = document.getElementById("btn-cancelar-selecao");
+const btnExcluirSelecionadasEl = document.getElementById("btn-excluir-selecionadas");
 const saldoEl = document.getElementById("saldo");
 const totalEntradasEl = document.getElementById("total-entradas");
 const totalSaidasEl = document.getElementById("total-saidas");
@@ -97,6 +103,10 @@ let idEmEdicao = null;
 let visao = VISAO.GERAL;
 let mesVisao = mesDeHoje();
 
+// ids das movimentações marcadas no histórico, e ids das que estão aparecendo na lista
+const selecionadas = new Set();
+let idsVisiveis = [];
+
 // true = valores aparecem; false = aparecem como "R$ •••••"
 let valoresVisiveis = Armazenamento.carregarValoresVisiveis();
 
@@ -136,6 +146,12 @@ btnMesAnteriorEl.addEventListener("click", () => irParaMes(Regras.deslocarMes(me
 btnMesProximoEl.addEventListener("click", () => irParaMes(Regras.deslocarMes(mesVisao, 1)));
 btnMesAtualEl.addEventListener("click", () => irParaMes(mesDeHoje()));
 
+// Seleção de várias movimentações
+listaEl.addEventListener("change", tratarSelecaoNaLista);
+btnSelecionarTodasEl.addEventListener("click", selecionarTodas);
+btnCancelarSelecaoEl.addEventListener("click", cancelarSelecao);
+btnExcluirSelecionadasEl.addEventListener("click", excluirSelecionadas);
+
 // Um único listener na lista cuida dos botões de todos os itens (delegação de eventos),
 // assim não é preciso usar onclick no HTML gerado
 listaEl.addEventListener("click", tratarCliqueNaLista);
@@ -149,6 +165,7 @@ btnImportarEl.addEventListener("click", () => arquivoImportarEl.click());
 arquivoImportarEl.addEventListener("change", importarDados);
 document.addEventListener("click", fecharMenuAoClicarFora);
 document.addEventListener("keydown", fecharMenuComEsc);
+document.addEventListener("keydown", cancelarSelecaoComEsc);
 
 aplicarVisibilidade();
 aplicarTema();
@@ -437,7 +454,16 @@ function atualizarHistorico() {
     const filtros = lerFiltros();
     const visiveis = Regras.ordenarHistorico(Regras.filtrarMovimentacoes(movimentacoes, filtros));
 
+    // Só pode continuar selecionado o que está aparecendo na lista
+    // (assim nunca se exclui algo escondido por um filtro)
+    idsVisiveis = visiveis.map((mov) => mov.id);
+    const aparecendo = new Set(idsVisiveis);
+    [...selecionadas].forEach((id) => {
+        if (!aparecendo.has(id)) selecionadas.delete(id);
+    });
+
     visiveis.forEach((mov) => listaEl.appendChild(criarItemHistorico(mov)));
+    atualizarBarraSelecao();
 
     historicoVazioEl.hidden = visiveis.length > 0;
     historicoVazioEl.textContent = mensagemHistoricoVazio(temMovimentacoes, filtros);
@@ -582,6 +608,7 @@ function criarItemHistorico(mov) {
 
     const futura = Regras.ehFutura(mov, hoje());
     if (futura) li.classList.add("futura");
+    if (selecionadas.has(mov.id)) li.classList.add("selecionada");
 
     const info = document.createElement("div");
     info.classList.add("movimentacao-info");
@@ -630,7 +657,8 @@ function criarItemHistorico(mov) {
     acoes.classList.add("movimentacao-acoes");
     acoes.append(
         criarBotaoAcao("editar", "✎", `Editar ${mov.descricao}`, mov.id),
-        criarBotaoAcao("excluir", "×", `Excluir ${mov.descricao}`, mov.id)
+        criarBotaoAcao("excluir", "×", `Excluir ${mov.descricao}`, mov.id),
+        criarCaixaSelecao(mov)
     );
 
     lado.append(valor, acoes);
@@ -650,6 +678,18 @@ function criarBotaoAcao(acao, simbolo, rotulo, id) {
     return botao;
 }
 
+// Caixinha ao lado do ×, para marcar várias movimentações e excluir de uma vez
+function criarCaixaSelecao(mov) {
+    const caixa = document.createElement("input");
+    caixa.type = "checkbox";
+    caixa.classList.add("caixa-selecao");
+    caixa.checked = selecionadas.has(mov.id);
+    caixa.dataset.id = mov.id;
+    caixa.title = "Selecionar";
+    caixa.setAttribute("aria-label", `Selecionar ${mov.descricao}`);
+    return caixa;
+}
+
 // Descobre qual botão foi clicado dentro da lista e chama a função certa
 function tratarCliqueNaLista(evento) {
     const botao = evento.target.closest("button[data-acao]");
@@ -661,6 +701,91 @@ function tratarCliqueNaLista(evento) {
     } else if (botao.dataset.acao === "excluir") {
         excluirMovimentacao(id);
     }
+}
+
+// ---------- Seleção de várias movimentações ----------
+
+function tratarSelecaoNaLista(evento) {
+    const caixa = evento.target.closest(".caixa-selecao");
+    if (!caixa) return;
+
+    const id = Number(caixa.dataset.id);
+    if (caixa.checked) {
+        selecionadas.add(id);
+    } else {
+        selecionadas.delete(id);
+    }
+    sincronizarSelecaoNaLista();
+}
+
+function selecionarTodas() {
+    idsVisiveis.forEach((id) => selecionadas.add(id));
+    sincronizarSelecaoNaLista();
+}
+
+function cancelarSelecao() {
+    selecionadas.clear();
+    sincronizarSelecaoNaLista();
+}
+
+function cancelarSelecaoComEsc(evento) {
+    // Se o menu de dados estiver aberto, o Esc fecha só o menu
+    if (evento.key === "Escape" && menuDadosEl.hidden && selecionadas.size > 0) {
+        cancelarSelecao();
+    }
+}
+
+// Marca/desmarca caixinhas e destaques sem redesenhar a lista (sem repetir a animação)
+function sincronizarSelecaoNaLista() {
+    listaEl.querySelectorAll(".movimentacao").forEach((li) => {
+        const marcada = selecionadas.has(Number(li.dataset.id));
+        li.classList.toggle("selecionada", marcada);
+        const caixa = li.querySelector(".caixa-selecao");
+        if (caixa) caixa.checked = marcada;
+    });
+    atualizarBarraSelecao();
+}
+
+// Barra "2 selecionadas · -R$ 450,50 | Selecionar todas | Cancelar | Excluir selecionadas"
+function atualizarBarraSelecao() {
+    const quantidade = selecionadas.size;
+    barraSelecaoEl.hidden = quantidade === 0;
+    listaEl.classList.toggle("modo-selecao", quantidade > 0);
+    if (quantidade === 0) return;
+
+    const escolhidas = movimentacoes.filter((mov) => selecionadas.has(mov.id));
+    const { saldo } = Regras.calcularResumo(escolhidas);
+    const texto = quantidade === 1 ? "1 selecionada" : `${quantidade} selecionadas`;
+    selecaoResumoEl.textContent = `${texto} · ${exibirValor(saldo)}`;
+
+    btnSelecionarTodasEl.hidden = idsVisiveis.every((id) => selecionadas.has(id));
+    btnExcluirSelecionadasEl.textContent = quantidade === 1 ? "Excluir selecionada" : `Excluir ${quantidade}`;
+}
+
+function excluirSelecionadas() {
+    const quantidade = selecionadas.size;
+    if (quantidade === 0) return;
+
+    const texto = quantidade === 1 ? "a movimentação selecionada" : `as ${quantidade} movimentações selecionadas`;
+    const confirmou = confirm(`Excluir ${texto}? Essa ação não pode ser desfeita.`);
+    if (!confirmou) return;
+
+    const novaLista = Regras.excluirMovimentacoes(movimentacoes, selecionadas);
+    if (!Armazenamento.salvarMovimentacoes(novaLista)) {
+        mostrarAviso("Não foi possível excluir. Verifique se o navegador permite armazenamento local.", "erro");
+        return;
+    }
+
+    movimentacoes = novaLista;
+
+    // Se a movimentação aberta no formulário foi excluída, sai da edição
+    if (idEmEdicao !== null && selecionadas.has(idEmEdicao)) {
+        sairModoEdicao();
+    }
+
+    selecionadas.clear();
+    atualizarTela();
+    mostrarAviso(quantidade === 1 ? "1 movimentação excluída." : `${quantidade} movimentações excluídas.`);
 }
 
 // ---------- Mostrar / ocultar valores (botão "olho") ----------
