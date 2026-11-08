@@ -107,7 +107,7 @@ Coinn/
 └── package.json          Scripts de teste e lint
 ```
 
-Cada arquivo de `js/` tem uma única responsabilidade: `regras.js` decide, `storage.js` guarda e `app.js` mostra na tela.
+Cada arquivo de `js/` tem uma única responsabilidade. A explicação completa está em `docs/qualidade-e-design.md`.
 
 ## Tecnologias
 
@@ -126,6 +126,8 @@ A documentação completa está na **Wiki** do projeto no Azure DevOps:
 - ADR 01: Aplicação client-side com localStorage
 - ADR 02: Exportação e importação de backup
 - Estratégia de branches e como contribuir
+- Qualidade e design do código (Sprint 4)
+- Roteiro de testes manuais (Sprint 4)
 
 <!-- Substitua pelo link da Wiki: -->
 Link: <URL-DA-WIKI>
