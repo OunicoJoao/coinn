@@ -467,3 +467,56 @@ describe("excluirMovimentacoes (seleção múltipla)", () => {
         assert.deepEqual(ids(Regras.excluirMovimentacoes(lista, [])), [1, 2, 3, 4]);
     });
 });
+
+describe("período (data inicial e final)", () => {
+    const HOJE = "2026-11-03";
+    const lista = [
+        mov({ id: 1, tipo: TIPO.ENTRADA, valor: 1000, data: "2026-10-31" }),
+        mov({ id: 2, tipo: TIPO.SAIDA, valor: 100, data: "2026-11-05" }),
+        mov({ id: 3, tipo: TIPO.SAIDA, valor: 250.5, data: "2026-11-20" }),
+        mov({ id: 4, tipo: TIPO.SAIDA, valor: 400, data: "2026-12-10" }),
+        mov({ id: 5, tipo: TIPO.ENTRADA, valor: 50, data: "2026-12-11" })
+    ];
+
+    it("valida o período", () => {
+        assert.equal(Regras.validarPeriodo("2026-11-05", "2026-12-10"), null);
+        assert.equal(Regras.validarPeriodo("2026-11-05", "2026-11-05"), null);   // um dia só
+        assert.match(Regras.validarPeriodo("2026-12-10", "2026-11-05"), /antes da inicial/);
+        assert.match(Regras.validarPeriodo("", "2026-11-05"), /data inicial e a final/);
+        assert.match(Regras.validarPeriodo("2026-11-05", "2026-02-31"), /data inicial e a final/);
+    });
+
+    it("filtra incluindo o primeiro e o último dia, mesmo atravessando meses", () => {
+        const filtradas = Regras.filtrarMovimentacoes(lista, { dataInicio: "2026-11-05", dataFim: "2026-12-10" });
+        assert.deepEqual(ids(filtradas), [2, 3, 4]);
+    });
+
+    it("filtro de um dia só", () => {
+        const filtradas = Regras.filtrarMovimentacoes(lista, { dataInicio: "2026-11-20", dataFim: "2026-11-20" });
+        assert.deepEqual(ids(filtradas), [3]);
+    });
+
+    it("período conta como filtro ativo", () => {
+        assert.equal(Regras.filtroAtivo({ dataInicio: "2026-11-05", dataFim: "2026-12-10" }), true);
+        assert.equal(Regras.filtroAtivo({}), false);
+    });
+
+    it("resumo do período: totais, saldo no início e no fim", () => {
+        const r = Regras.calcularResumoPeriodo(lista, "2026-11-05", "2026-12-10", HOJE);
+        assert.equal(r.entradas, 0);
+        assert.equal(r.saidas, 750.5);
+        assert.equal(r.resultado, -750.5);
+        assert.equal(r.saldoInicial, 1000);
+        assert.equal(r.saldoFinal, 249.5);
+        assert.equal(r.quantidade, 3);
+        assert.equal(r.quantidadeFuturas, 3);
+        assert.equal(r.situacao, Regras.SITUACAO_MES.FUTURO);
+    });
+
+    it("situação do período em relação a hoje", () => {
+        const { SITUACAO_MES } = Regras;
+        assert.equal(Regras.calcularResumoPeriodo(lista, "2026-10-01", "2026-10-31", HOJE).situacao, SITUACAO_MES.PASSADO);
+        assert.equal(Regras.calcularResumoPeriodo(lista, "2026-11-01", HOJE, HOJE).situacao, SITUACAO_MES.ATUAL);
+        assert.equal(Regras.calcularResumoPeriodo(lista, "2026-11-04", "2026-11-30", HOJE).situacao, SITUACAO_MES.FUTURO);
+    });
+});

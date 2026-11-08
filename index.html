@@ -191,7 +191,18 @@
                             <!--Opções de subcategoria adicionadas via Javascript-->
                         </select>
                     </div>
+                    <!-- Período De/Até: só na visão mensal. Muda só a lista e o resumo do histórico;
+                         o saldo e o mês lá de cima continuam iguais. Para um dia só, use a mesma data. -->
+                    <div class="filtro filtro-data" id="filtro-inicio-grupo" hidden>
+                        <label for="filtro-data-inicio">De</label>
+                        <input type="date" id="filtro-data-inicio">
+                    </div>
+                    <div class="filtro filtro-data" id="filtro-fim-grupo" hidden>
+                        <label for="filtro-data-fim">Até</label>
+                        <input type="date" id="filtro-data-fim">
+                    </div>
                 </div>
+                <p id="filtro-periodo-erro" class="filtro-periodo-erro" role="alert" hidden></p>
 
                 <!-- Total das movimentações filtradas (só aparece com algum filtro ativo) -->
                 <div class="filtro-resumo">
