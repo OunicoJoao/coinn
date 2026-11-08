@@ -4,25 +4,114 @@
  */
 
 :root {
-    /* Paleta baseada na barra do topo: laranja + escuro + creme */
+    /* Paleta base do tema claro: laranja + escuro + creme */
     --laranja-escuro: #fcd97a;   /* laranja principal (barra do topo) */
     --laranja-forte: #F2C14E;    /* bordas de foco, onde o laranja precisa aparecer mais */
     --laranja-claro: #FFF4D6;    /* fundos suaves (formulário, item em edição) */
     --creme: #FFFBF2;            /* fundo da página */
     --escuro: #1A202C;           /* mesmo escuro do botão "selecionado" da barra */
-    --escuro-2: #2A3242;         /* cartões dentro do bloco escuro */
 
-    --cor-entrada: #059669;      /* verde/vermelho sobre fundo claro */
+    /*
+     * Cores por função. As regras do CSS usam só estas variáveis, assim o tema
+     * noturno (mais abaixo) só precisa trocar os valores, sem repetir regras.
+     */
+    --fundo-pagina: var(--creme);
+    --superficie-base: #FFF;              /* card principal */
+    --superficie: #FFF;                   /* cartões, itens, campos, menu */
+    --destaque-fundo: var(--laranja-claro); /* saldo, formulário, item em edição */
+    --destaque: var(--laranja-escuro);    /* barra do topo, botão principal, bordas de hover */
+    --destaque-forte: var(--laranja-forte); /* hover do botão principal */
+    --texto-sobre-destaque: var(--escuro);
+    --foco-borda: var(--laranja-forte);
+    --foco-anel: rgba(252, 217, 122, 0.45);
+
+    --topbar-texto: var(--escuro);
+    --btn-topbar-fundo: rgba(255, 255, 255, 0.75);
+    --btn-topbar-fundo-hover: #FFF;
+    --btn-topbar-texto: var(--escuro);
+    --btn-topbar-ativo-fundo: var(--escuro);  /* botão "apertado" (olho fechado, modo noturno) */
+    --btn-topbar-ativo-texto: var(--laranja-escuro);
+
+    --cor-entrada: #059669;
     --cor-saida: #DC2626;
-    --entrada-clara: #6EE7B7;    /* verde/vermelho sobre fundo escuro */
-    --saida-clara: #FCA5A5;
+    --entrada-fundo: #ECFDF5;
+    --saida-fundo: #FEF2F2;
+    --perigo: #991B1B;                    /* saldo negativo */
+    --perigo-fundo: #FEE2E2;
+    --perigo-borda: #FECACA;
 
     --texto: #2D3436;
     --texto-forte: #1A202C;
     --texto-suave: #786F5E;      /* cinza "quente", combina com o laranja */
+    --texto-label: #4A4234;
+    --etiqueta-texto: #6B5A2E;
     --borda: #F1E4BF;
     --borda-hover: #E6D08F;
+
+    --aviso-fundo: var(--escuro);
+    --aviso-erro-fundo: #991B1B;
+
     --sombra: 0 4px 14px rgba(120, 90, 20, 0.10);
+    --sombra-container: 0 12px 32px rgba(120, 90, 20, 0.08);
+    --sombra-item: 0 2px 8px rgba(120, 90, 20, 0.05);
+    --sombra-item-hover: 0 4px 12px rgba(120, 90, 20, 0.12);
+    --sombra-flutuante: 0 10px 28px rgba(0, 0, 0, 0.18); /* menu, aviso, barra do topo */
+
+    color-scheme: light; /* calendário, selects e barras de rolagem nativas no tema claro */
+}
+
+/*
+ * Tema noturno: roxo + cinza + preto.
+ * Ativado pelo botão de lua na barra do topo (data-tema="escuro" no <html>).
+ */
+:root[data-tema="escuro"] {
+    --roxo: #820AD1;
+    --roxo-forte: #9B30E8;
+    --roxo-claro: #B57BFF;
+
+    --fundo-pagina: #0E0B12;
+    --superficie-base: #16131B;
+    --superficie: #1F1A26;
+    --destaque-fundo: #261C33;
+    --destaque: var(--roxo);
+    --destaque-forte: var(--roxo-forte);
+    --texto-sobre-destaque: #FFF;
+    --foco-borda: var(--roxo-claro);
+    --foco-anel: rgba(181, 123, 255, 0.30);
+
+    --topbar-texto: #FFF;
+    --btn-topbar-fundo: rgba(255, 255, 255, 0.14);
+    --btn-topbar-fundo-hover: rgba(255, 255, 255, 0.24);
+    --btn-topbar-texto: #FFF;
+    --btn-topbar-ativo-fundo: #FFF;
+    --btn-topbar-ativo-texto: var(--roxo);
+
+    --cor-entrada: #34D399;
+    --cor-saida: #F87171;
+    --entrada-fundo: rgba(52, 211, 153, 0.12);
+    --saida-fundo: rgba(248, 113, 113, 0.12);
+    --perigo: #F87171;
+    --perigo-fundo: rgba(248, 113, 113, 0.14);
+    --perigo-borda: rgba(248, 113, 113, 0.35);
+
+    --texto: #E4DFEA;
+    --texto-forte: #F7F4FA;
+    --texto-suave: #A39CAE;
+    --texto-label: #CFC7DA;
+    --etiqueta-texto: #D9BEFF;
+    --borda: #2F2838;
+    --borda-hover: #4A3F58;
+
+    --aviso-fundo: #2E2738;
+    --aviso-erro-fundo: #B91C1C;
+
+    --sombra: 0 4px 14px rgba(0, 0, 0, 0.35);
+    --sombra-container: 0 12px 32px rgba(0, 0, 0, 0.45);
+    --sombra-item: 0 2px 8px rgba(0, 0, 0, 0.25);
+    --sombra-item-hover: 0 4px 12px rgba(0, 0, 0, 0.4);
+    --sombra-flutuante: 0 10px 28px rgba(0, 0, 0, 0.5);
+
+    color-scheme: dark; /* calendário, selects e barras de rolagem nativas no tema noturno */
 }
 
 * {
@@ -37,7 +126,7 @@
 }
 
 body {
-    background: var(--creme);
+    background: var(--fundo-pagina);
     min-height: 100vh;
     font-family: "Poppins", sans-serif;
     display: flex;
@@ -45,25 +134,27 @@ body {
     align-items: center;
     padding-bottom: 20px;
     color: var(--texto);
+    transition: background-color 0.3s ease, color 0.3s ease; /* troca de tema suave */
 }
 
 .container {
     width: calc(100% - 40px);
     max-width: 1200px;
     margin-top: 24px;
-    background-color: #FFF;
+    background-color: var(--superficie-base);
     padding: 2rem;
     border-radius: 24px;
     border: 1px solid var(--borda);
-    box-shadow: 0 12px 32px rgba(120, 90, 20, 0.08);
+    box-shadow: var(--sombra-container);
 }
 
 /* ---------- Barra do topo ---------- */
 
 .topbar {
     width: 100%;
-    background-color: var(--laranja-escuro);
+    background-color: var(--destaque);
     box-shadow: 0 2px 10px rgba(0, 0, 0, 0.12);
+    transition: background-color 0.3s ease;
     position: sticky; /* continua visível ao rolar a página */
     top: 0;
     z-index: 10;
@@ -95,7 +186,7 @@ body {
     margin-bottom: 0;
     font-size: 1.6rem;
     font-weight: 600;
-    color: var(--texto-forte);
+    color: var(--topbar-texto);
 }
 
 .topbar-acoes {
@@ -114,8 +205,8 @@ body {
     padding: 0 10px;
     border: 2px solid transparent;
     border-radius: 10px;
-    background-color: rgba(255, 255, 255, 0.75);
-    color: var(--texto-forte);
+    background-color: var(--btn-topbar-fundo);
+    color: var(--btn-topbar-texto);
     font-family: inherit;
     font-size: 0.95rem;
     font-weight: 500;
@@ -124,24 +215,24 @@ body {
 }
 
 .btn-topbar:hover {
-    background-color: #FFF;
+    background-color: var(--btn-topbar-fundo-hover);
     transform: translateY(-1px);
     box-shadow: 0 4px 10px rgba(0, 0, 0, 0.12);
 }
 
 .btn-topbar:focus-visible {
     outline: none;
-    border-color: var(--texto-forte);
+    border-color: var(--btn-topbar-texto);
 }
 
-/* Olho fechado = botão "apertado" */
+/* Olho fechado / modo noturno ativo = botão "apertado" */
 .btn-topbar[aria-pressed="true"] {
-    background-color: var(--texto-forte);
-    color: var(--laranja-escuro);
+    background-color: var(--btn-topbar-ativo-fundo);
+    color: var(--btn-topbar-ativo-texto);
 }
 
 .btn-topbar[aria-expanded="true"] {
-    background-color: #FFF;
+    background-color: var(--btn-topbar-fundo-hover);
 }
 
 .icone {
@@ -168,6 +259,19 @@ body {
     display: block;
 }
 
+/* Lua no tema claro, sol no tema noturno */
+.icone-sol {
+    display: none;
+}
+
+[data-tema="escuro"] .icone-lua {
+    display: none;
+}
+
+[data-tema="escuro"] .icone-sol {
+    display: block;
+}
+
 /* Menu de exportar / importar */
 .menu-dados {
     position: relative;
@@ -182,9 +286,10 @@ body {
     display: flex;
     flex-direction: column;
     padding: 6px;
-    background-color: #FFF;
+    background-color: var(--superficie);
+    border: 1px solid var(--borda);
     border-radius: 12px;
-    box-shadow: 0 10px 28px rgba(0, 0, 0, 0.18);
+    box-shadow: var(--sombra-flutuante);
     z-index: 20;
     animation: abrirMenu 0.15s ease;
 }
@@ -231,7 +336,7 @@ body {
 
 .menu-item:hover,
 .menu-item:focus-visible {
-    background-color: var(--laranja-claro);
+    background-color: var(--destaque-fundo);
     outline: none;
 }
 
@@ -244,16 +349,16 @@ body {
     max-width: calc(100% - 32px);
     padding: 12px 20px;
     border-radius: 10px;
-    background-color: var(--texto-forte);
+    background-color: var(--aviso-fundo);
     color: #FFF;
     font-size: 0.95rem;
-    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.2);
+    box-shadow: var(--sombra-flutuante);
     z-index: 30;
     animation: subirAviso 0.25s ease;
 }
 
 .aviso.erro {
-    background-color: #991B1B;
+    background-color: var(--aviso-erro-fundo);
 }
 
 @keyframes subirAviso {
@@ -276,20 +381,20 @@ h2 {
 
 /* ---------- Saldo (#18) ---------- */
 
-/* Mesmo laranja-claro do formulário de nova movimentação */
+/* Mesmo fundo de destaque do formulário de nova movimentação */
 .saldo-container {
     text-align: center;
     margin-bottom: 35px;
     padding: 24px;
-    background: var(--laranja-claro);
+    background: var(--destaque-fundo);
     border-radius: 1rem;
     box-shadow: var(--sombra);
-    border: 2px solid var(--laranja-claro);
+    border: 2px solid var(--destaque-fundo);
     transition:transform 1s ease, border 1s ease;
 }
 
 .saldo-container:hover{
-    border: 2px solid var(--laranja-escuro);
+    border: 2px solid var(--destaque);
     transform: translateY(-5px);
 }
 
@@ -301,7 +406,7 @@ h2 {
 }
 
 .saldo.negativo {
-    color: #991B1B;
+    color: var(--perigo);
 }
 
 .resumo {
@@ -313,7 +418,7 @@ h2 {
 
 .resumo-entradas,
 .resumo-saidas {
-    background-color: #FFF;
+    background-color: var(--superficie);
     padding: 24px;
     border-radius: 1rem;
     border: 1px solid var(--borda);
@@ -393,8 +498,8 @@ h2 {
 
 .btn-limpar:hover,
 .btn-limpar:focus-visible {
-    background-color: #FEE2E2;
-    border-color: #FECACA;
+    background-color: var(--perigo-fundo);
+    border-color: var(--perigo-borda);
     outline: none;
 }
 
@@ -428,7 +533,7 @@ h2 {
 
 .filtro-resumo:has(> :not([hidden])) {
     padding: 8px 12px;
-    background-color: var(--laranja-claro);
+    background-color: var(--destaque-fundo);
     border-radius: 8px;
 }
 
@@ -452,7 +557,7 @@ h2 {
 
 .btn-link:hover,
 .btn-link:focus-visible {
-    color: var(--escuro);
+    color: var(--texto-forte);
     outline: none;
 }
 
@@ -484,7 +589,7 @@ h2 {
 }
 
 #lista-movimentacoes::-webkit-scrollbar-track {
-    background-color: var(--creme);
+    background-color: var(--fundo-pagina);
     border-radius: 4px;
 }
 
@@ -505,9 +610,9 @@ h2 {
     padding: 1rem 1.2rem;
     margin-bottom: 12px;
     border-radius: 12px;
-    background-color: #FFF;
+    background-color: var(--superficie);
     border: 1px solid var(--borda);
-    box-shadow: 0 2px 8px rgba(120, 90, 20, 0.05);
+    box-shadow: var(--sombra-item);
     transition: all 0.2s ease;
     border-right: 5px solid;
     animation: entrarDeslizando 0.3s ease;   
@@ -526,7 +631,7 @@ h2 {
 
 .movimentacao:hover {
     transform: translateX(4px);
-    box-shadow: 0 4px 12px rgba(120, 90, 20, 0.12);
+    box-shadow: var(--sombra-item-hover);
 }
     
 .movimentacao.entrada {
@@ -562,9 +667,9 @@ h2 {
     line-height: 1.4;
     padding: 2px 8px;
     border-radius: 999px;
-    background-color: var(--laranja-claro);
+    background-color: var(--destaque-fundo);
     border: 1px solid var(--borda);
-    color: #6B5A2E;
+    color: var(--etiqueta-texto);
     white-space: nowrap;
     max-width: 100%;
     overflow: hidden;
@@ -591,8 +696,8 @@ h2 {
 
 /* Item que está aberto no formulário de edição */
 .movimentacao.editando {
-    background-color: var(--laranja-claro);
-    box-shadow: 0 0 0 2px var(--laranja-escuro);
+    background-color: var(--destaque-fundo);
+    box-shadow: 0 0 0 2px var(--destaque);
 }
 
 /* Valor + botões de editar/excluir, no lado direito do item */
@@ -628,8 +733,8 @@ h2 {
 
 .btn-editar:hover,
 .btn-editar:focus-visible {
-    background-color: var(--laranja-escuro);
-    color: var(--escuro);
+    background-color: var(--destaque);
+    color: var(--texto-sobre-destaque);
     outline: none;
 }
 
@@ -640,7 +745,7 @@ h2 {
 
 .btn-excluir:hover,
 .btn-excluir:focus-visible {
-    background-color: #FEE2E2;
+    background-color: var(--perigo-fundo);
     transform: scale(1.1);
     outline: none;
 }
@@ -661,24 +766,24 @@ h2 {
 
 /* ---------- Formulário (#17) ---------- */
 .form-container {
-    background: var(--laranja-claro);
+    background: var(--destaque-fundo);
     padding: 24px;
     border-radius: 16px;
     box-shadow: var(--sombra);
     display: flex;
     flex-direction: column;
-    border: 2px solid var(--laranja-claro);
+    border: 2px solid var(--destaque-fundo);
     transition:transform 1s ease, border 1s ease;
 }
 
 .form-container:hover{
-    border: 2px solid var(--laranja-escuro);
+    border: 2px solid var(--destaque);
     transform: translateY(-5px);
 }
 
 /* Enquanto edita, a borda fica destacada mesmo sem o mouse em cima */
 .form-container.editando {
-    border-color: var(--laranja-escuro);
+    border-color: var(--destaque);
 }
 
 
@@ -711,7 +816,7 @@ label,
 legend {
     display: block;
     margin-bottom: 8px;
-    color: #4A4234;
+    color: var(--texto-label);
     font-weight: 500;
 }
 
@@ -737,7 +842,7 @@ select {
     font-size: 1rem;
     font-family: inherit;
     transition: all 0.2s ease;
-    background-color: #FFF;
+    background-color: var(--superficie);
     color: var(--texto);
 }
 
@@ -757,8 +862,8 @@ input[type="number"]:focus,
 input[type="date"]:focus,
 select:focus {
     outline: none;
-    border-color: var(--laranja-forte);
-    box-shadow: 0 0 0 3px rgba(252, 217, 122, 0.45);
+    border-color: var(--foco-borda);
+    box-shadow: 0 0 0 3px var(--foco-anel);
 }
 
 /* Seletor de tipo (entrada / saída) em forma de botões */
@@ -785,7 +890,7 @@ select:focus {
     padding: 10px;
     border: 2px solid var(--borda);
     border-radius: 8px;
-    background-color: #FFF;
+    background-color: var(--superficie);
     transition: all 0.2s ease;
 }
 
@@ -799,36 +904,36 @@ select:focus {
 }
 
 .tipo-opcao.entrada input:checked + span {
-    background-color: #ECFDF5;
+    background-color: var(--entrada-fundo);
     border-color: var(--cor-entrada);
     color: var(--cor-entrada);
 }
 
 .tipo-opcao.saida input:checked + span {
-    background-color: #FEF2F2;
+    background-color: var(--saida-fundo);
     border-color: var(--cor-saida);
     color: var(--cor-saida);
 }
 
 .tipo-opcao input:focus-visible + span {
-    box-shadow: 0 0 0 3px rgba(252, 217, 122, 0.6);
+    box-shadow: 0 0 0 3px var(--foco-anel);
 }
 
 .mensagem-erro {
     color: var(--cor-saida);
-    background-color: #FEF2F2;
+    background-color: var(--saida-fundo);
     border-radius: 8px;
     padding: 10px 14px;
     margin-bottom: 16px;
     font-size: 0.9rem;
 }
 
-/* Botão principal: laranja da barra do topo com texto escuro */
+/* Botão principal: mesma cor da barra do topo (laranja no claro, roxo no noturno) */
 button[type="submit"] {
     width: 100%;
     padding: 14px;
-    background: var(--laranja-escuro);
-    color: var(--escuro);
+    background: var(--destaque);
+    color: var(--texto-sobre-destaque);
     border: none;
     border-radius: 8px;
     cursor: pointer;
@@ -843,9 +948,9 @@ button[type="submit"] {
 button[type="submit"]:hover,
 button[type="submit"]:focus-visible {
     transform: translateY(-2px);
-    box-shadow: 0 6px 16px rgba(120, 90, 20, 0.25);
-    background: var(--laranja-forte);
-    color: var(--escuro);
+    box-shadow: var(--sombra-item-hover);
+    background: var(--destaque-forte);
+    color: var(--texto-sobre-destaque);
     outline: none;
 }
 
@@ -864,7 +969,7 @@ button[type="submit"]:active {
 .btn-cancelar {
     width: 100%;
     padding: 12px;
-    background: #FFF;
+    background: var(--superficie);
     color: var(--texto-suave);
     border: 2px solid var(--borda);
     border-radius: 8px;
@@ -877,8 +982,8 @@ button[type="submit"]:active {
 
 .btn-cancelar:hover,
 .btn-cancelar:focus-visible {
-    border-color: var(--escuro);
-    color: var(--escuro);
+    border-color: var(--texto-forte);
+    color: var(--texto-forte);
     outline: none;
 }
 

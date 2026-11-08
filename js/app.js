@@ -2,7 +2,7 @@
  * app.js
  * Lógica da interface: registrar movimentação (#17), consultar saldo (#18),
  * ver histórico (#19), editar e excluir (#20), categorias e subcategorias, filtros e limpar tudo.
- * Na barra do topo: mostrar/ocultar valores e exportar/importar os dados (#21).
+ * Na barra do topo: mostrar/ocultar valores, modo claro/noturno e exportar/importar os dados (#21).
  *
  * Este arquivo só cuida da tela (ler o formulário, desenhar a lista, reagir a cliques).
  * - As regras de negócio (validar, calcular, filtrar, ordenar) ficam em regras.js.
@@ -17,6 +17,12 @@ const { TIPO, LIMITES, FILTRO_TODOS, FILTRO_SEM } = Regras;
 
 // Texto mostrado no lugar dos valores quando o "olho" está fechado
 const VALOR_OCULTO = "R$ •••••";
+
+// Cor da barra do navegador no celular, em cada tema (igual à barra do topo)
+const COR_BARRA_NAVEGADOR = Object.freeze({
+    claro: "#fcd97a",
+    escuro: "#820AD1"
+});
 
 // Tempo que o aviso rápido fica na tela
 const DURACAO_AVISO_MS = 3500;
@@ -51,6 +57,8 @@ const erroEl = document.getElementById("mensagem-erro");
 const btnRegistrarEl = document.getElementById("btn-registrar");
 const btnCancelarEdicaoEl = document.getElementById("btn-cancelar-edicao");
 const btnVisibilidadeEl = document.getElementById("btn-visibilidade");
+const btnTemaEl = document.getElementById("btn-tema");
+const metaCorNavegadorEl = document.querySelector('meta[name="theme-color"]');
 const btnDadosEl = document.getElementById("btn-dados");
 const menuDadosEl = document.getElementById("menu-dados");
 const btnExportarEl = document.getElementById("btn-exportar");
@@ -68,6 +76,9 @@ let idEmEdicao = null;
 
 // true = valores aparecem; false = aparecem como "R$ •••••"
 let valoresVisiveis = Armazenamento.carregarValoresVisiveis();
+
+// "claro" ou "escuro" (o index.html já aplicou o tema salvo antes de a página aparecer)
+let temaAtual = Armazenamento.carregarTema();
 
 // Guarda o timer do aviso para poder reiniciá-lo
 let timerAviso = null;
@@ -101,6 +112,7 @@ listaEl.addEventListener("click", tratarCliqueNaLista);
 
 // Barra do topo
 btnVisibilidadeEl.addEventListener("click", alternarVisibilidade);
+btnTemaEl.addEventListener("click", alternarTema);
 btnDadosEl.addEventListener("click", alternarMenuDados);
 btnExportarEl.addEventListener("click", exportarDados);
 btnImportarEl.addEventListener("click", () => arquivoImportarEl.click());
@@ -109,6 +121,7 @@ document.addEventListener("click", fecharMenuAoClicarFora);
 document.addEventListener("keydown", fecharMenuComEsc);
 
 aplicarVisibilidade();
+aplicarTema();
 atualizarContador();
 atualizarTela();
 
@@ -515,6 +528,26 @@ function aplicarVisibilidade() {
 // Valor formatado, ou "R$ •••••" se o olho estiver fechado
 function exibirValor(numero) {
     return valoresVisiveis ? Regras.formatarMoeda(numero) : VALOR_OCULTO;
+}
+
+// ---------- Modo claro / noturno ----------
+
+function alternarTema() {
+    temaAtual = temaAtual === Armazenamento.TEMA.ESCURO ? Armazenamento.TEMA.CLARO : Armazenamento.TEMA.ESCURO;
+    Armazenamento.salvarTema(temaAtual);
+    aplicarTema();
+}
+
+// As cores de cada tema ficam no CSS; aqui só marca qual tema está ativo e atualiza o botão
+function aplicarTema() {
+    const noturno = temaAtual === Armazenamento.TEMA.ESCURO;
+    const rotulo = noturno ? "Ativar modo claro" : "Ativar modo noturno";
+
+    document.documentElement.dataset.tema = temaAtual;
+    btnTemaEl.setAttribute("aria-pressed", String(noturno));
+    btnTemaEl.setAttribute("aria-label", rotulo);
+    btnTemaEl.title = rotulo;
+    metaCorNavegadorEl.setAttribute("content", COR_BARRA_NAVEGADOR[temaAtual]);
 }
 
 // ---------- Menu de exportar / importar ----------
