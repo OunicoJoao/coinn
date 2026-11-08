@@ -15,6 +15,7 @@ Versão atual: **MVP ampliado (Sprint 4)**
 - **Limpar tudo** (#59): apaga todas as movimentações, com confirmação
 - **Exportar e importar** (#21): cópia de segurança em arquivo `.json`
 - **Ocultar valores** (#56): botão de olho para usar o Coinn em público
+- **Modo noturno**: botão de lua/sol na barra do topo alterna entre o tema claro (laranja) e o noturno (roxo, cinza e preto); a escolha fica salva
 - **Categorias e subcategorias** (#57): texto livre e opcional (ex.: Alimentação › Mercado), com sugestões do que já foi usado
 - **Filtros do histórico** (#58): por tipo, mês, categoria e subcategoria, combináveis, com o total do período filtrado
 
@@ -46,7 +47,7 @@ npm run lint       # verifica o padrão do código
 
 ## Como os dados são guardados
 
-As movimentações ficam salvas no **localStorage** do navegador, na chave `coinn.movimentacoes`. A preferência do botão de olho fica em `coinn.valoresVisiveis`. Isso significa que:
+As movimentações ficam salvas no **localStorage** do navegador, na chave `coinn.movimentacoes`. As preferências ficam em `coinn.valoresVisiveis` (olho) e `coinn.tema` (claro ou noturno). Isso significa que:
 
 - os dados ficam apenas no computador e no navegador de quem usa;
 - nada é enviado para a internet;

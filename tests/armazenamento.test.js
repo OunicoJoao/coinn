@@ -82,4 +82,28 @@ describe("Armazenamento", () => {
     it("valores ficam visíveis por padrão", () => {
         assert.equal(Armazenamento.carregarValoresVisiveis(), true);
     });
+
+    it("tema claro é o padrão", () => {
+        assert.equal(Armazenamento.carregarTema(), "claro");
+    });
+
+    it("salva e carrega o tema noturno", () => {
+        Armazenamento.salvarTema(Armazenamento.TEMA.ESCURO);
+        assert.equal(localStorage.getItem("coinn.tema"), "escuro");
+        assert.equal(Armazenamento.carregarTema(), "escuro");
+
+        Armazenamento.salvarTema(Armazenamento.TEMA.CLARO);
+        assert.equal(Armazenamento.carregarTema(), "claro");
+    });
+
+    it("tema salvo desconhecido volta para o claro", () => {
+        localStorage.setItem("coinn.tema", "roxo-neon");
+        assert.equal(Armazenamento.carregarTema(), "claro");
+    });
+
+    it("limpar tudo mantém o tema escolhido", () => {
+        Armazenamento.salvarTema("escuro");
+        Armazenamento.removerTodasMovimentacoes();
+        assert.equal(Armazenamento.carregarTema(), "escuro");
+    });
 });

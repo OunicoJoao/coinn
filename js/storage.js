@@ -21,6 +21,15 @@ const Armazenamento = (function () {
     // Preferência do botão "olho" (mostrar/ocultar valores)
     const CHAVE_VALORES_VISIVEIS = "coinn.valoresVisiveis";
 
+    // Preferência do tema (claro ou noturno)
+    const CHAVE_TEMA = "coinn.tema";
+
+    // Temas possíveis; o claro é o padrão
+    const TEMA = Object.freeze({
+        CLARO: "claro",
+        ESCURO: "escuro"
+    });
+
     // Retorna a lista de movimentações salva, ou uma lista vazia
     function carregarMovimentacoes() {
         try {
@@ -49,7 +58,7 @@ const Armazenamento = (function () {
     }
 
     // Apaga todas as movimentações salvas (usado pelo "Limpar tudo"); retorna true se deu certo.
-    // A preferência de mostrar/ocultar valores continua salva.
+    // As preferências (mostrar/ocultar valores e tema) continuam salvas.
     function removerTodasMovimentacoes() {
         try {
             localStorage.removeItem(CHAVE_MOVIMENTACOES);
@@ -78,12 +87,33 @@ const Armazenamento = (function () {
         }
     }
 
+    // Retorna o tema salvo; claro se nada foi salvo ou se o valor salvo for desconhecido
+    function carregarTema() {
+        try {
+            return localStorage.getItem(CHAVE_TEMA) === TEMA.ESCURO ? TEMA.ESCURO : TEMA.CLARO;
+        } catch {
+            return TEMA.CLARO;
+        }
+    }
+
+    function salvarTema(tema) {
+        try {
+            localStorage.setItem(CHAVE_TEMA, tema === TEMA.ESCURO ? TEMA.ESCURO : TEMA.CLARO);
+        } catch (erro) {
+            // Não é grave: o tema só não fica salvo para a próxima visita
+            console.error("Coinn: não foi possível salvar o tema.", erro);
+        }
+    }
+
     return Object.freeze({
+        TEMA,
         carregarMovimentacoes,
         salvarMovimentacoes,
         removerTodasMovimentacoes,
         carregarValoresVisiveis,
-        salvarValoresVisiveis
+        salvarValoresVisiveis,
+        carregarTema,
+        salvarTema
     });
 })();
 
