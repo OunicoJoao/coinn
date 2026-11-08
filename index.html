@@ -199,6 +199,16 @@
                     <button type="button" id="btn-limpar-filtros" class="btn-link" hidden>Limpar filtros</button>
                 </div>
 
+                <!-- Aparece quando há movimentações selecionadas (caixinha ao lado do ×) -->
+                <div id="barra-selecao" class="barra-selecao" hidden>
+                    <span id="selecao-resumo" class="selecao-resumo" aria-live="polite"></span>
+                    <div class="barra-selecao-acoes">
+                        <button type="button" id="btn-selecionar-todas" class="btn-link">Selecionar todas</button>
+                        <button type="button" id="btn-cancelar-selecao" class="btn-link">Cancelar</button>
+                        <button type="button" id="btn-excluir-selecionadas" class="btn-excluir-selecionadas">Excluir selecionadas</button>
+                    </div>
+                </div>
+
                 <p id="historico-vazio" class="historico-vazio">Nenhuma movimentação registrada ainda.</p>
                 <!--Movimentações adicionadas aqui via Javascript-->
                 <ul id="lista-movimentacoes"></ul>

@@ -225,6 +225,12 @@ const Regras = (function () {
         return lista.filter((mov) => mov.id !== id);
     }
 
+    // Exclui várias de uma vez (seleção múltipla no histórico)
+    function excluirMovimentacoes(lista, ids) {
+        const excluir = new Set(ids);
+        return lista.filter((mov) => !excluir.has(mov.id));
+    }
+
     // ---------- #18 Saldo ----------
 
     // Soma em centavos (números inteiros) para evitar erros de ponto flutuante:
@@ -493,6 +499,7 @@ const Regras = (function () {
         adicionarMovimentacao,
         editarMovimentacao,
         excluirMovimentacao,
+        excluirMovimentacoes,
         calcularResumo,
         ehFutura,
         calcularResumoGeral,
