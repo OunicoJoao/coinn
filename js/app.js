@@ -2,8 +2,8 @@
  * app.js
  * Lógica da interface: registrar movimentação (#17), consultar saldo (#18),
  * ver histórico (#19), editar e excluir (#20), categorias e subcategorias, filtros e limpar tudo,
- * movimentações futuras (saldo atual x previsto), visão Geral / Mensal
- * e seleção de várias movimentações para excluir de uma vez.
+ * movimentações futuras (saldo atual x previsto), visão Geral / Mensal (com filtro De/Até
+ * no histórico) e seleção de várias movimentações para excluir de uma vez.
  * Na barra do topo: mostrar/ocultar valores, modo claro/noturno e exportar/importar os dados (#21).
  *
  * Este arquivo só cuida da tela (ler o formulário, desenhar a lista, reagir a cliques).
@@ -49,6 +49,11 @@ const tituloEntradasEl = document.getElementById("titulo-entradas");
 const tituloSaidasEl = document.getElementById("titulo-saidas");
 const filtroMesGrupoEl = document.getElementById("filtro-mes-grupo");
 const avisoDataFuturaEl = document.getElementById("aviso-data-futura");
+const filtroInicioGrupoEl = document.getElementById("filtro-inicio-grupo");
+const filtroFimGrupoEl = document.getElementById("filtro-fim-grupo");
+const periodoInicioEl = document.getElementById("filtro-data-inicio");
+const periodoFimEl = document.getElementById("filtro-data-fim");
+const periodoErroEl = document.getElementById("filtro-periodo-erro");
 const barraSelecaoEl = document.getElementById("barra-selecao");
 const selecaoResumoEl = document.getElementById("selecao-resumo");
 const btnSelecionarTodasEl = document.getElementById("btn-selecionar-todas");
@@ -103,6 +108,10 @@ let idEmEdicao = null;
 let visao = VISAO.GERAL;
 let mesVisao = mesDeHoje();
 
+// Filtro De/Até do histórico na visão mensal: { inicio, fim } ("AAAA-MM-DD") ou null.
+// Muda só a lista e o resumo do histórico; o card de saldo continua mostrando o mês.
+let periodo = null;
+
 // ids das movimentações marcadas no histórico, e ids das que estão aparecendo na lista
 const selecionadas = new Set();
 let idsVisiveis = [];
@@ -145,6 +154,16 @@ abasVisaoEl.addEventListener("click", trocarVisao);
 btnMesAnteriorEl.addEventListener("click", () => irParaMes(Regras.deslocarMes(mesVisao, -1)));
 btnMesProximoEl.addEventListener("click", () => irParaMes(Regras.deslocarMes(mesVisao, 1)));
 btnMesAtualEl.addEventListener("click", () => irParaMes(mesDeHoje()));
+
+// Filtro De/Até: preencher uma data só já mostra aquele dia; depois dá para ajustar a outra
+periodoInicioEl.addEventListener("change", () => {
+    if (!periodoFimEl.value) periodoFimEl.value = periodoInicioEl.value;
+    aplicarPeriodo();
+});
+periodoFimEl.addEventListener("change", () => {
+    if (!periodoInicioEl.value) periodoInicioEl.value = periodoFimEl.value;
+    aplicarPeriodo();
+});
 
 // Seleção de várias movimentações
 listaEl.addEventListener("change", tratarSelecaoNaLista);
@@ -418,8 +437,45 @@ function trocarVisao(evento) {
     visao = aba.dataset.visao;
     if (visao === VISAO.MENSAL) {
         mesVisao = mesDeHoje(); // ao entrar na visão mensal, começa no mês de hoje
+        limparPeriodo();
     }
     atualizarTela();
+}
+
+// ---------- Filtro De/Até do histórico (visão mensal) ----------
+
+// Só o histórico muda: o card de saldo e o mês lá de cima continuam iguais
+function aplicarPeriodo() {
+    const inicio = periodoInicioEl.value;
+    const fim = periodoFimEl.value;
+
+    // Os dois campos vazios: o histórico volta a mostrar o mês
+    if (!inicio && !fim) {
+        limparPeriodo();
+        atualizarHistorico();
+        return;
+    }
+
+    const erro = Regras.validarPeriodo(inicio, fim);
+    periodoErroEl.textContent = erro || "";
+    periodoErroEl.hidden = !erro;
+    if (erro) return; // mantém a lista como estava até o período ficar válido
+
+    periodo = { inicio, fim };
+    atualizarHistorico();
+}
+
+function limparPeriodo() {
+    periodo = null;
+    periodoInicioEl.value = "";
+    periodoFimEl.value = "";
+    periodoErroEl.hidden = true;
+}
+
+// "05/11/2026 a 10/12/2026", ou só "05/11/2026" se for um dia
+function textoPeriodo({ inicio, fim }) {
+    const de = Regras.formatarData(inicio);
+    return inicio === fim ? de : `${de} a ${Regras.formatarData(fim)}`;
 }
 
 function irParaMes(anoMes) {
@@ -437,6 +493,11 @@ function atualizarVisao() {
     navegadorMesEl.hidden = !mensal;
     mesVisaoEl.textContent = Regras.formatarMes(mesVisao);
     btnMesAtualEl.hidden = mesVisao === mesDeHoje();
+
+    // O filtro De/Até do histórico só existe na visão mensal
+    filtroInicioGrupoEl.hidden = !mensal;
+    filtroFimGrupoEl.hidden = !mensal;
+    if (!mensal) periodoErroEl.hidden = true;
 
     // Na visão mensal, o mês já é o do navegador: o filtro de mês do histórico some
     filtroMesGrupoEl.hidden = mensal;
@@ -473,25 +534,43 @@ function atualizarHistorico() {
 
 function mensagemHistoricoVazio(temMovimentacoes, filtros) {
     if (!temMovimentacoes) return "Nenhuma movimentação registrada ainda.";
-    if (visao === VISAO.MENSAL && !Regras.filtroAtivo(filtrosSemMes(filtros))) {
+    if (visao === VISAO.MENSAL && !Regras.filtroAtivo(filtrosSemPeriodo(filtros))) {
+        if (periodo) {
+            return periodo.inicio === periodo.fim
+                ? `Nenhuma movimentação em ${textoPeriodo(periodo)}.`
+                : `Nenhuma movimentação de ${textoPeriodo(periodo)}.`;
+        }
         return `Nenhuma movimentação em ${Regras.formatarMes(mesVisao)}.`;
     }
     return "Nenhuma movimentação encontrada com esses filtros.";
 }
 
 function lerFiltros() {
-    return {
+    const filtros = {
         tipo: filtroTipoEl.value,
-        // Na visão mensal o mês vem do navegador de meses, não do select
-        mes: visao === VISAO.MENSAL ? mesVisao : filtroMesEl.value,
+        mes: filtroMesEl.value,
         categoria: filtroCategoriaEl.value,
         subcategoria: filtroSubcategoriaEl.value
     };
+
+    // Na visão mensal a lista mostra o mês do navegador, ou o período De/Até, se preenchido
+    if (visao === VISAO.MENSAL) {
+        if (periodo) {
+            return { ...filtros, mes: FILTRO_TODOS.MES, dataInicio: periodo.inicio, dataFim: periodo.fim };
+        }
+        return { ...filtros, mes: mesVisao };
+    }
+    return filtros;
 }
 
-// Os mesmos filtros, ignorando o mês (na visão mensal o mês não conta como "filtro ativo")
+// Os mesmos filtros, sem o mês (na visão mensal o mês do navegador não conta como "filtro ativo")
 function filtrosSemMes(filtros) {
     return { ...filtros, mes: FILTRO_TODOS.MES };
+}
+
+// Sem o mês e sem o De/Até: sobra só tipo, categoria e subcategoria
+function filtrosSemPeriodo(filtros) {
+    return { ...filtrosSemMes(filtros), dataInicio: "", dataFim: "" };
 }
 
 // Com algum filtro ativo, mostra o total só das movimentações que aparecem na lista.
@@ -500,15 +579,50 @@ function atualizarTotalFiltrado(filtros, visiveis) {
     const ativo = Regras.filtroAtivo(visao === VISAO.MENSAL ? filtrosSemMes(filtros) : filtros);
     btnLimparFiltrosEl.hidden = !ativo;
 
+    // Com De/Até, o resumo do histórico mostra o período em detalhe (mesmo sem movimentações)
+    if (visao === VISAO.MENSAL && periodo) {
+        mostrarResumoDoPeriodo(visiveis);
+        return;
+    }
+
     if (!ativo || visiveis.length === 0) {
         totalFiltradoEl.hidden = true;
         return;
     }
 
     const { saldo } = Regras.calcularResumo(visiveis);
-    const quantidade = `${visiveis.length} ${visiveis.length === 1 ? "movimentação" : "movimentações"}`;
-    totalFiltradoEl.textContent = `Total no filtro: ${exibirValor(saldo)} (${quantidade})`;
+    totalFiltradoEl.classList.remove("resumo-periodo");
+    totalFiltradoEl.textContent = `Total no filtro: ${exibirValor(saldo)} (${textoQuantidade(visiveis.length)})`;
     totalFiltradoEl.hidden = false;
+}
+
+// Resumo do histórico com De/Até:
+//   05/11/2026 a 12/12/2026 · 2 movimentações
+//   Entradas: R$ 0,00 · Saídas: R$ 1.600,00 · Resultado: -R$ 1.600,00
+//   Saldo previsto em 12/12/2026: R$ 2.149,50
+// Entradas, saídas e resultado são das movimentações da lista (respeitam tipo e categoria).
+// O saldo na data final é o saldo de tudo até aquele dia, como no card do topo.
+function mostrarResumoDoPeriodo(visiveis) {
+    const { entradas, saidas, saldo } = Regras.calcularResumo(visiveis);
+    const periodoTodo = Regras.calcularResumoPeriodo(movimentacoes, periodo.inicio, periodo.fim, hoje());
+    const sinal = saldo > 0 && valoresVisiveis ? "+" : "";
+    const rotuloSaldo = periodoTodo.situacao === SITUACAO_MES.PASSADO ? "Saldo em" : "Saldo previsto em";
+
+    totalFiltradoEl.replaceChildren(
+        criarLinhaDeTexto([textoPeriodo(periodo), textoQuantidade(visiveis.length)]),
+        criarLinhaDeTexto([
+            `Entradas: ${exibirValor(entradas)}`,
+            `Saídas: ${exibirValor(saidas)}`,
+            `Resultado: ${sinal}${exibirValor(saldo)}`
+        ]),
+        criarLinhaDeTexto([`${rotuloSaldo} ${Regras.formatarData(periodo.fim)}: ${exibirValor(periodoTodo.saldoFinal)}`])
+    );
+    totalFiltradoEl.classList.add("resumo-periodo");
+    totalFiltradoEl.hidden = false;
+}
+
+function textoQuantidade(quantidade) {
+    return `${quantidade} ${quantidade === 1 ? "movimentação" : "movimentações"}`;
 }
 
 // Recria as opções do filtro de mês com os meses que têm movimentação
@@ -593,6 +707,7 @@ function resetarFiltros() {
     filtroTipoEl.value = FILTRO_TODOS.TIPO;
     filtroMesEl.value = FILTRO_TODOS.MES;
     filtroCategoriaEl.value = FILTRO_TODOS.CATEGORIA;
+    limparPeriodo();
     atualizarOpcoesSubcategoria();
 }
 

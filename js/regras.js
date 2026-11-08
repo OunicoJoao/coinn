@@ -302,37 +302,63 @@ const Regras = (function () {
         return SITUACAO_MES.ATUAL;
     }
 
-    // Resumo de um mês ("AAAA-MM"):
-    // - entradas, saídas e resultado: só as movimentações do mês (inclusive as futuras)
-    // - saldoInicial: saldo acumulado antes do dia 1 do mês
-    // - saldoFinal: saldo acumulado até o último dia do mês (previsto, se o mês não acabou)
-    function calcularResumoMensal(lista, anoMes, hoje) {
-        const primeiroDia = `${anoMes}-01`;
-        const ultimoDia = ultimoDiaDoMes(anoMes);
-        const doMes = lista.filter((mov) => mov.data.startsWith(anoMes));
-        const { entradas, saidas, saldo } = calcularResumo(doMes);
+    // Período escolhido na visão mensal: as duas datas precisam existir e o fim não pode
+    // vir antes do início. Retorna uma mensagem de erro, ou null se estiver tudo certo.
+    function validarPeriodo(inicio, fim) {
+        if (!dataValida(inicio) || !dataValida(fim)) {
+            return "Informe a data inicial e a final.";
+        }
+        if (fim < inicio) {
+            return "A data final não pode ser antes da inicial.";
+        }
+        return null;
+    }
+
+    // Resumo de um período (datas "AAAA-MM-DD", incluindo o primeiro e o último dia):
+    // - entradas, saídas e resultado: só as movimentações do período (inclusive as futuras)
+    // - saldoInicial: saldo acumulado antes do primeiro dia
+    // - saldoFinal: saldo acumulado até o último dia (previsto, se o período não acabou)
+    // - situacao: o período já terminou, está acontecendo ou ainda vai começar
+    function calcularResumoPeriodo(lista, inicio, fim, hoje) {
+        const doPeriodo = lista.filter((mov) => mov.data >= inicio && mov.data <= fim);
+        const { entradas, saidas, saldo } = calcularResumo(doPeriodo);
+
+        let situacao = SITUACAO_MES.ATUAL;
+        if (fim < hoje) situacao = SITUACAO_MES.PASSADO;
+        else if (inicio > hoje) situacao = SITUACAO_MES.FUTURO;
 
         return {
             entradas,
             saidas,
             resultado: saldo,
-            saldoInicial: calcularResumo(lista.filter((mov) => mov.data < primeiroDia)).saldo,
-            saldoFinal: calcularResumo(lista.filter((mov) => mov.data <= ultimoDia)).saldo,
-            quantidade: doMes.length,
-            quantidadeFuturas: doMes.filter((mov) => ehFutura(mov, hoje)).length,
+            saldoInicial: calcularResumo(lista.filter((mov) => mov.data < inicio)).saldo,
+            saldoFinal: calcularResumo(lista.filter((mov) => mov.data <= fim)).saldo,
+            quantidade: doPeriodo.length,
+            quantidadeFuturas: doPeriodo.filter((mov) => ehFutura(mov, hoje)).length,
+            situacao
+        };
+    }
+
+    // Resumo de um mês ("AAAA-MM"): é o resumo do período do dia 1 ao último dia
+    function calcularResumoMensal(lista, anoMes, hoje) {
+        return {
+            ...calcularResumoPeriodo(lista, `${anoMes}-01`, ultimoDiaDoMes(anoMes), hoje),
             situacao: situacaoDoMes(anoMes, hoje)
         };
     }
 
     // ---------- #19 Histórico: filtros e ordenação ----------
 
-    // Filtro que não foi informado vale como "todos"
+    // Filtro que não foi informado vale como "todos".
+    // dataInicio e dataFim ("AAAA-MM-DD") limitam o período; "" = sem limite.
     function completarFiltros(filtros = {}) {
         return {
             tipo: filtros.tipo ?? FILTRO_TODOS.TIPO,
             mes: filtros.mes ?? FILTRO_TODOS.MES,
             categoria: filtros.categoria ?? FILTRO_TODOS.CATEGORIA,
-            subcategoria: filtros.subcategoria ?? FILTRO_TODOS.SUBCATEGORIA
+            subcategoria: filtros.subcategoria ?? FILTRO_TODOS.SUBCATEGORIA,
+            dataInicio: filtros.dataInicio ?? "",
+            dataFim: filtros.dataFim ?? ""
         };
     }
 
@@ -341,9 +367,11 @@ const Regras = (function () {
         return categoria !== FILTRO_TODOS.CATEGORIA && categoria !== FILTRO_SEM;
     }
 
-    function passaNosFiltros(mov, { tipo, mes, categoria, subcategoria }) {
+    function passaNosFiltros(mov, { tipo, mes, categoria, subcategoria, dataInicio, dataFim }) {
         if (tipo !== FILTRO_TODOS.TIPO && mov.tipo !== tipo) return false;
         if (mes !== FILTRO_TODOS.MES && !mov.data.startsWith(mes)) return false;
+        if (dataInicio && mov.data < dataInicio) return false;
+        if (dataFim && mov.data > dataFim) return false;
 
         if (categoria === FILTRO_SEM) {
             return !mov.categoria;
@@ -364,9 +392,11 @@ const Regras = (function () {
     }
 
     function filtroAtivo(filtros) {
-        const { tipo, mes, categoria, subcategoria } = completarFiltros(filtros);
+        const { tipo, mes, categoria, subcategoria, dataInicio, dataFim } = completarFiltros(filtros);
         return tipo !== FILTRO_TODOS.TIPO
             || mes !== FILTRO_TODOS.MES
+            || Boolean(dataInicio)
+            || Boolean(dataFim)
             || categoria !== FILTRO_TODOS.CATEGORIA
             || (categoriaEspecifica(categoria) && subcategoria !== FILTRO_TODOS.SUBCATEGORIA);
     }
@@ -506,6 +536,8 @@ const Regras = (function () {
         ultimoDiaDoMes,
         deslocarMes,
         situacaoDoMes,
+        validarPeriodo,
+        calcularResumoPeriodo,
         calcularResumoMensal,
         categoriaEspecifica,
         filtrarMovimentacoes,

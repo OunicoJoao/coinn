@@ -621,9 +621,29 @@ h2 {
     min-width: 0;
 }
 
-/* Na visão mensal o filtro de mês some: os três que sobram ficam numa linha só */
+/* Na visão mensal o filtro de mês some e entram De/Até:
+   Tipo, Categoria e Subcategoria numa linha; De e Até na linha de baixo */
 .filtros:has(> #filtro-mes-grupo[hidden]) {
-    grid-template-columns: repeat(3, 1fr);
+    grid-template-columns: repeat(6, 1fr);
+}
+
+.filtros:has(> #filtro-mes-grupo[hidden]) > .filtro {
+    grid-column: span 2;
+}
+
+.filtros:has(> #filtro-mes-grupo[hidden]) > .filtro-data {
+    grid-column: span 3;
+}
+
+.filtro input[type="date"] {
+    padding: 7px 12px;
+    font-size: 0.95rem;
+}
+
+.filtro-periodo-erro {
+    margin: -4px 0 12px;
+    font-size: 0.85rem;
+    color: var(--cor-saida);
 }
 
 /* Subcategoria fica desativada até escolher uma categoria */
@@ -652,6 +672,17 @@ h2 {
     font-size: 0.9rem;
     font-weight: 500;
     color: var(--texto-forte);
+}
+
+/* Resumo do filtro De/Até: uma informação por linha */
+.total-filtrado.resumo-periodo .linha-texto {
+    display: block;
+}
+
+.total-filtrado.resumo-periodo .linha-texto + .linha-texto {
+    margin-top: 2px;
+    font-weight: 400;
+    color: var(--texto);
 }
 
 .btn-link {
@@ -1239,6 +1270,19 @@ button[type="submit"]:active {
 
     .filtros:has(> #filtro-mes-grupo[hidden]) {
         grid-template-columns: 1fr 1fr;
+    }
+
+    .filtros:has(> #filtro-mes-grupo[hidden]) > .filtro {
+        grid-column: span 1;
+    }
+
+    /* Subcategoria ocupa a linha toda, para De e Até ficarem lado a lado na linha de baixo */
+    .filtros:has(> #filtro-mes-grupo[hidden]) > .filtro:has(#filtro-subcategoria) {
+        grid-column: span 2;
+    }
+
+    .filtros:has(> #filtro-mes-grupo[hidden]) > .filtro-data {
+        grid-column: span 1;
     }
 
     /* No celular, abas e navegador de meses ocupam a largura toda */
