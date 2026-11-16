@@ -1,6 +1,6 @@
 {
   "name": "coinn",
-  "version": "1.1.0",
+  "version": "1.2.0",
   "description": "Aplicação web de finanças pessoais: registre entradas e saídas, acompanhe o saldo e o histórico. Dados salvos só no navegador.",
   "private": true,
   "scripts": {

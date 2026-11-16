@@ -118,10 +118,47 @@ Antes de começar: abra o Coinn, aperte F12 > Console e rode `localStorage.remov
 
 | # | Passos | Resultado esperado | OK? |
 |---|---|---|---|
-| 6.1 | Exportar / Importar > Exportar dados | Baixa um arquivo `coinn-movimentacoes-AAAA-MM-DD.json` | |
+| 6.1 | Exportar / Importar > Exportar dados > Exportar (com "Tudo" marcado) | Baixa um arquivo `coinn-movimentacoes-AAAA-MM-DD.json` | |
 | 6.2 | Clique em "Limpar tudo" e confirme | Histórico vazio e saldo R$ 0,00 | |
-| 6.3 | Importe o arquivo baixado no passo 6.1 | Todas as movimentações voltam, com categorias e subcategorias | |
+| 6.3 | Importe o arquivo baixado no passo 6.1 (Exportar / Importar > Importar dados > Importar) | Todas as movimentações voltam, com categorias e subcategorias | |
 | 6.4 | Tente importar um arquivo que não é da Coinn (ex.: uma imagem renomeada para .json) | Mensagem de erro; nada é alterado | |
+
+## 6b. Exportar e importar por período
+
+Prepare movimentações em pelo menos dois anos (ex.: algumas em 2025 e algumas no ano atual, incluindo uma data futura).
+
+| # | Passos | Resultado esperado | OK? |
+|---|---|---|---|
+| 6b.1 | Exportar / Importar > Exportar dados | Abre o diálogo com "Tudo" marcado e um resumo (quantidade, entradas, saídas, resultado) | |
+| 6b.2 | Escolha "Mês", um mês com movimentações, e exporte | Baixa `coinn-movimentacoes-AAAA-MM.json` só com aquele mês; nada some da Coinn | |
+| 6b.3 | Escolha "Vários meses" com o mês final antes do inicial | Mensagem "O mês final não pode ser antes do inicial." e o botão fica desativado | |
+| 6b.4 | Escolha "Ano" = ano atual | "Remover..." fica desativado, explicando que só dá para remover meses que já terminaram | |
+| 6b.5 | Anote o saldo. Escolha "Ano" = ano passado, marque "Remover..." e deixe "Manter o saldo igual" marcado | Mostra quanto espaço libera e o ajuste que será criado ("Saldo de 2025", no dia 31/12) | |
+| 6b.6 | Desmarque "Manter o saldo igual" | Aparece o alerta de que o saldo vai mudar. Marque de novo | |
+| 6b.7 | Clique em "Exportar e remover" e confirme | Baixa `coinn-movimentacoes-2025.json`; as movimentações do ano somem do histórico; aparece "Saldo de 2025" (categoria "Ajuste de saldo"); o **saldo é o mesmo** do passo 6b.5 | |
+| 6b.8 | Importe o arquivo do passo 6b.7 (Incorporar, Tudo) | A prévia diz "N novas" e que o ajuste sai. Ao importar, as movimentações voltam, o ajuste some e o saldo continua o mesmo | |
+| 6b.9 | Importe o mesmo arquivo de novo | "Nada novo: tudo isso já está na Coinn." e o botão Importar desativado | |
+| 6b.10 | Edite o arquivo num editor de texto (mude o valor de uma movimentação) e importe | Aparece a lista de conflitos ("valor: R$ X → R$ Y"); o botão só libera depois de escolher "Manter as minhas" ou "Usar as do arquivo" | |
+| 6b.11 | Escolha "Usar as do arquivo" e importe | O valor muda na Coinn; nada fica duplicado | |
+| 6b.12 | Importe um arquivo escolhendo "Mês" e "Substituir só o período escolhido" | Só as movimentações daquele mês são trocadas; os outros meses ficam iguais | |
+| 6b.13 | Importe com "Substituir todos os meus dados" e clique em Cancelar no aviso | Nada muda | |
+| 6b.14 | Importe um arquivo exportado antes (versão 2, da Sprint 4) | Funciona normalmente | |
+
+## 6c. Relatórios
+
+| # | Passos | Resultado esperado | OK? |
+|---|---|---|---|
+| 6c.1 | Clique na aba "Relatórios" | Some o saldo, o histórico e o formulário; aparece o relatório do ano atual | |
+| 6c.2 | Confira os cartões | Entradas, saídas, resultado ("Guardou X% das entradas") e saldo no fim, com a comparação com o ano anterior | |
+| 6c.3 | Passe o mouse (ou use Tab) nos meses dos gráficos | Aparece a dica com o mês e os valores; meses que ainda não terminaram aparecem hachurados e com "(previsto)" | |
+| 6c.4 | Confira a tabela "Mês a mês" | Mesmos números dos gráficos; saldo no fim de cada mês = fim do mês anterior + resultado | |
+| 6c.5 | Troque o período: Mês, Vários meses (atravessando o ano), Últimos 12 meses e Tudo | Tudo se atualiza; com vários anos, os meses aparecem como "Jan/26" | |
+| 6c.6 | Escolha um período sem movimentações | Mensagem "Nenhuma movimentação em ..." | |
+| 6c.7 | Confira "Saídas por categoria" | Da maior para a menor, com porcentagem e subcategorias; "Sem categoria" em itálico | |
+| 6c.8 | Clique no olho | Os valores e os eixos dos gráficos ficam ocultos; as porcentagens continuam | |
+| 6c.9 | Clique em "Baixar planilha (CSV)" e abra no Excel | Colunas certas, acentos corretos, uma linha por mês e a linha "Total" | |
+| 6c.10 | Clique em "Imprimir / PDF" (também no modo noturno) | A prévia de impressão mostra só o relatório, com cores claras | |
+| 6c.11 | Ative o modo noturno | Gráficos, cartões e tabela continuam legíveis | |
 
 ## 7. Celular
 
@@ -129,6 +166,7 @@ Antes de começar: abra o Coinn, aperte F12 > Console e rode `localStorage.remov
 |---|---|---|---|
 | 7.1 | Abra no celular | O formulário aparece antes do histórico; não há rolagem para os lados | |
 | 7.2 | Repita os passos 1.1, 3.1 e 4.1 | Funcionam igual ao computador | |
+| 7.3 | Abra a aba Relatórios e os diálogos de exportar e importar | Tudo cabe na tela, sem rolagem para os lados; os botões dos diálogos ficam um embaixo do outro | |
 
 ## Observações do testador
 
