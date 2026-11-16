@@ -6,7 +6,7 @@ Projeto desenvolvido pela equipe **Ministério da Fazenda** na disciplina de Eng
 
 ## Funcionalidades
 
-Versão atual: **MVP ampliado (Sprint 4)**
+Versão atual: **1.2.0**: MVP ampliado da Sprint 4, com relatórios e exportar/importar por período
 
 - **Registrar movimentação** (#17): entrada ou saída, com valor, data, descrição, categoria e subcategoria
 - **Consultar saldo** (#18): saldo atual, total de entradas e total de saídas
@@ -15,6 +15,9 @@ Versão atual: **MVP ampliado (Sprint 4)**
 - **Excluir várias**: caixinha de seleção em cada movimentação do histórico, com "Selecionar todas" e "Excluir selecionadas" (com confirmação)
 - **Limpar tudo** (#59): apaga todas as movimentações, com confirmação
 - **Exportar e importar** (#21): cópia de segurança em arquivo `.json`
+  - **Exportar por período** (#__): tudo, um mês, vários meses ou um ano
+  - **Exportar e remover** (#__): tira um período que já terminou da Coinn para liberar espaço, guardando um "Ajuste de saldo" para o saldo não mudar
+  - **Importar incorporando** (#__): escolhe o período do arquivo e junta com os dados atuais (só o que é novo; conflitos são mostrados para o usuário decidir), ou substitui só aquele período, ou tudo
 - **Ocultar valores** (#56): botão de olho para usar o Coinn em público
 - **Modo noturno**: botão de lua/sol na barra do topo alterna entre o tema claro (laranja) e o noturno (roxo, cinza e preto); a escolha fica salva
 - **Categorias e subcategorias** (#57): texto livre e opcional (ex.: Alimentação › Mercado), com sugestões do que já foi usado
@@ -22,6 +25,7 @@ Versão atual: **MVP ampliado (Sprint 4)**
 - **Movimentações futuras**: com data depois de hoje, não entram no saldo atual, só no **saldo previsto**; no dia da data passam a contar sozinhas
 - **Visão Geral e Mensal**: a Geral mostra tudo; a Mensal mostra um mês por vez (‹ Novembro de 2026 ›), com entradas e saídas do mês, saldo no início e saldo previsto para o fim do mês
 - **Filtro De/Até**: nos filtros do histórico da visão Mensal, mostra só as movimentações de um intervalo de datas (inclusive um dia só, e atravessando meses), com entradas, saídas, resultado e o saldo previsto na data final. O card de saldo e o mês continuam iguais
+- **Relatórios** (#__ e #__): aba "Relatórios" com o período à escolha (mês, vários meses, ano, últimos 12 meses ou tudo), totais e comparação com o período anterior, gráficos de **entradas por mês**, **saídas por mês** e **saldo no fim de cada mês**, informações gerais (médias, taxa de economia...), destaques, gastos e entradas por categoria, maiores saídas, tabela mês a mês, planilha CSV e impressão/PDF
 
 ## Como executar
 
@@ -45,7 +49,7 @@ npm test           # roda os testes automatizados
 npm run lint       # verifica o padrão do código
 ```
 
-- **Testes automatizados** ficam na pasta `tests/` e usam o executor de testes nativo do Node (`node:test`). Eles cobrem as regras de negócio (`js/regras.js`) e a camada de armazenamento (`js/storage.js`).
+- **Testes automatizados** ficam na pasta `tests/` e usam o executor de testes nativo do Node (`node:test`). Eles cobrem as regras de negócio (`js/regras.js`), os cálculos dos relatórios (`js/relatorios.js`) e a camada de armazenamento (`js/storage.js`).
 - **ESLint** verifica erros comuns e o padrão do código, com as regras em `eslint.config.js`.
 - **Pipeline (Azure Pipelines)** roda tudo isso automaticamente em todo Pull Request, e o merge só é liberado se passar.
 
@@ -84,6 +88,7 @@ Cada movimentação é salva assim:
 | `categoria` | Texto livre e opcional, até 20 caracteres (`""` quando não informada) |
 | `subcategoria` | Texto livre e opcional, até 20 caracteres. Só existe se houver categoria |
 | `dataModificacao` | Só existe se a movimentação foi editada: data e hora da última alteração |
+| `ajuste` | Só existe no "Ajuste de saldo" criado ao exportar e remover um período: `{ inicio, fim, quantidade }` |
 
 O saldo não é armazenado: ele é calculado a partir das movimentações sempre que a tela é atualizada. Movimentações com data depois de hoje entram só no saldo previsto.
 
@@ -97,8 +102,10 @@ Coinn/
 │   └── style.css         Estilos da aplicação
 ├── js/
 │   ├── regras.js         Regras de negócio (funções puras, testáveis)
+│   ├── relatorios.js     Cálculos dos relatórios (funções puras, testáveis)
+│   ├── graficos.js       Gráficos dos relatórios em SVG
 │   ├── storage.js        Leitura e gravação no localStorage
-│   └── app.js            Interface: formulário, lista, botões
+│   └── app.js            Interface: formulário, lista, botões, relatórios, diálogos
 ├── img/                  Imagens e ícones
 ├── tests/                Testes automatizados
 ├── docs/                 Documentação complementar

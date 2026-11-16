@@ -18,7 +18,9 @@ Cada arquivo de `js/` tem um único motivo para mudar:
 
 | Arquivo | Responsabilidade | Muda quando... |
 |---|---|---|
-| `regras.js` | Regras de negócio: validar, calcular saldo, filtrar, ordenar, importar | uma regra do produto muda (ex.: limite de valor) |
+| `regras.js` | Regras de negócio: validar, calcular saldo, filtrar, ordenar, períodos, exportar e importar | uma regra do produto muda (ex.: limite de valor) |
+| `relatorios.js` | Cálculos dos relatórios: totais, meses, categorias, destaques, CSV | o conteúdo dos relatórios muda |
+| `graficos.js` | Desenhar os gráficos em SVG (barras, linha, categorias) e a dica ao passar o mouse | o visual dos gráficos muda |
 | `storage.js` | Ler e gravar dados no localStorage | a forma de guardar os dados muda |
 | `app.js` | Tela: ler o formulário, desenhar a lista, reagir a cliques | o visual ou a interação muda |
 
@@ -67,6 +69,8 @@ Em vez de um `onclick` em cada botão de editar ou excluir, há um único listen
 - **Uma validação para tudo:** o formulário (registrar e editar) e a importação de arquivo usam a mesma função `validarMovimentacao`.
 - **Temas com variáveis CSS:** as regras do `style.css` usam só variáveis por função (`--superficie`, `--destaque`, `--texto-suave`...). O tema noturno é um único bloco `:root[data-tema="escuro"]` que troca os valores, sem repetir nenhuma regra. O tema é aplicado no `<head>`, antes de a página aparecer, para não piscar.
 - **Segurança:** o texto digitado pelo usuário é exibido com `textContent`, nunca com `innerHTML`, para não ser interpretado como HTML.
+- **Relatórios sem biblioteca:** os gráficos são SVG desenhados por `graficos.js`, com as cores vindas das variáveis do CSS (funcionam no tema noturno e na impressão sem código extra). Os números saem de `relatorios.js`, que é puro e testado; o gráfico só desenha o que recebe. A tabela "Mês a mês" traz os mesmos números, como alternativa acessível aos gráficos.
+- **Importação sem perder dados:** `compararImportacao` separa o que é novo, o que já existe e o que está em conflito antes de qualquer gravação; a tela mostra o resultado e só grava depois da escolha do usuário.
 - **Compatibilidade com dados antigos:** movimentações e arquivos exportados antes das categorias continuam funcionando (`normalizarMovimentacao` preenche os campos vazios) e aparecem em "Sem categoria".
 
 ## 5. Defeitos encontrados e corrigidos
