@@ -1485,6 +1485,74 @@ button[type="submit"]:active {
     color: var(--texto);
 }
 
+.dialogo-alerta {
+    padding: 10px 14px;
+    border-radius: 10px;
+    background-color: var(--perigo-fundo);
+    border: 1px solid var(--perigo-borda);
+    color: var(--perigo);
+    font-size: 0.86rem;
+}
+
+/* Opções com caixinha ou bolinha e uma explicação embaixo */
+.opcao-check,
+.opcao-radio {
+    display: flex;
+    align-items: flex-start;
+    gap: 10px;
+    margin: 0;
+    padding: 10px 12px;
+    border: 2px solid var(--borda);
+    border-radius: 10px;
+    background-color: var(--superficie);
+    color: var(--texto-forte);
+    font-weight: 500;
+    font-size: 0.92rem;
+    cursor: pointer;
+    transition: border-color 0.2s ease;
+}
+
+.opcao-check:hover,
+.opcao-radio:hover {
+    border-color: var(--borda-hover);
+}
+
+.opcao-check:has(input:checked),
+.opcao-radio:has(input:checked) {
+    border-color: var(--destaque);
+    background-color: var(--destaque-fundo);
+}
+
+.opcao-check:has(input:disabled) {
+    opacity: 0.7;
+    cursor: not-allowed;
+}
+
+.opcao-check input,
+.opcao-radio input {
+    margin-top: 4px;
+    width: 18px;
+    height: 18px;
+    flex-shrink: 0;
+    accent-color: var(--cor-selecao);
+}
+
+.opcao-check small,
+.opcao-radio small {
+    display: block;
+    color: var(--texto-suave);
+    font-weight: 400;
+    font-size: 0.8rem;
+}
+
+.dialogo-subopcoes {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    padding-left: 16px;
+    border-left: 3px solid var(--destaque);
+}
+
 .dialogo-botoes {
     display: flex;
     flex-direction: row-reverse;

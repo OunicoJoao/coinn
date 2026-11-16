@@ -559,17 +559,84 @@ describe("períodos de meses (relatórios, exportar e importar)", () => {
         assert.deepEqual(Regras.listarAnos(lista), ["2026", "2025"]);
     });
 
-    it("descreve o período por extenso e no nome do arquivo", () => {
+    it("descreve o período por extenso, curto e no nome do arquivo", () => {
         const casos = [
-            [{ inicio: "2026-11", fim: "2026-11" }, "Novembro de 2026", "2026-11"],
-            [{ inicio: "2026-01", fim: "2026-12" }, "Ano de 2026", "2026"],
-            [{ inicio: "2026-01", fim: "2026-03" }, "Janeiro a Março de 2026", "2026-01_a_2026-03"],
-            [{ inicio: "2025-11", fim: "2026-02" }, "Novembro de 2025 a Fevereiro de 2026", "2025-11_a_2026-02"]
+            [{ inicio: "2026-11", fim: "2026-11" }, "Novembro de 2026", "11/2026", "2026-11"],
+            [{ inicio: "2026-01", fim: "2026-12" }, "Ano de 2026", "2026", "2026"],
+            [{ inicio: "2026-01", fim: "2026-03" }, "Janeiro a Março de 2026", "01/2026 a 03/2026", "2026-01_a_2026-03"],
+            [{ inicio: "2025-11", fim: "2026-02" }, "Novembro de 2025 a Fevereiro de 2026", "11/2025 a 02/2026", "2025-11_a_2026-02"]
         ];
-        casos.forEach(([periodo, longo, arquivo]) => {
+        casos.forEach(([periodo, longo, curto, arquivo]) => {
             assert.equal(Regras.descreverPeriodo(periodo), longo);
+            assert.equal(Regras.descreverPeriodoCurto(periodo), curto);
             assert.equal(Regras.nomeArquivoPeriodo(periodo), arquivo);
         });
+    });
+});
+
+describe("exportar e remover um período (ajuste de saldo)", () => {
+    const lista = [
+        mov({ id: 1, tipo: TIPO.ENTRADA, valor: 1000, data: "2025-01-05" }),
+        mov({ id: 2, tipo: TIPO.SAIDA, valor: 300.1, data: "2025-06-10" }),
+        mov({ id: 3, tipo: TIPO.SAIDA, valor: 50, data: "2026-02-01" })
+    ];
+    const ano2025 = { inicio: "2025-01", fim: "2025-12" };
+
+    it("só deixa remover meses que já terminaram", () => {
+        assert.equal(Regras.validarRemocaoDoPeriodo(ano2025, "2026-11-10"), null);
+        assert.equal(Regras.validarRemocaoDoPeriodo({ inicio: "2026-10", fim: "2026-10" }, "2026-11-10"), null);
+        assert.match(Regras.validarRemocaoDoPeriodo({ inicio: "2026-11", fim: "2026-11" }, "2026-11-10"), /já terminaram/);
+        assert.match(Regras.validarRemocaoDoPeriodo({ inicio: "2026-01", fim: "2026-12" }, "2026-11-10"), /já terminaram/);
+    });
+
+    it("separa as movimentações que saem das que ficam", () => {
+        const { restantes, removidas } = Regras.removerPeriodo(lista, ano2025);
+        assert.deepEqual(ids(removidas), [1, 2]);
+        assert.deepEqual(ids(restantes), [3]);
+    });
+
+    it("cria o ajuste com o resultado do período no último dia, e o saldo não muda", () => {
+        const { restantes, removidas } = Regras.removerPeriodo(lista, ano2025);
+        const { movimentacao } = Regras.criarAjusteDeSaldo(removidas, ano2025, 99);
+        assert.deepEqual(movimentacao, {
+            id: 99,
+            tipo: TIPO.ENTRADA,
+            valor: 699.9,
+            data: "2025-12-31",
+            descricao: "Saldo de 2025",
+            categoria: Regras.CATEGORIA_AJUSTE,
+            subcategoria: "",
+            ajuste: { inicio: "2025-01", fim: "2025-12", quantidade: 2 }
+        });
+        assert.equal(Regras.validarMovimentacao(movimentacao), null);
+        assert.equal(Regras.calcularResumo([...restantes, movimentacao]).saldo, Regras.calcularResumo(lista).saldo);
+        assert.ok(Regras.ehAjuste(movimentacao));
+    });
+
+    it("resultado negativo vira uma saída; resultado zero não precisa de ajuste", () => {
+        const negativo = Regras.criarAjusteDeSaldo([mov({ tipo: TIPO.SAIDA, valor: 80 })], { inicio: "2026-02", fim: "2026-02" }, 1);
+        assert.equal(negativo.movimentacao.tipo, TIPO.SAIDA);
+        assert.equal(negativo.movimentacao.valor, 80);
+        assert.equal(negativo.movimentacao.data, "2026-02-28");
+        assert.equal(negativo.movimentacao.descricao, "Saldo de 02/2026");
+
+        const zero = Regras.criarAjusteDeSaldo([
+            mov({ id: 1, tipo: TIPO.ENTRADA, valor: 10 }),
+            mov({ id: 2, tipo: TIPO.SAIDA, valor: 10 })
+        ], ano2025, 1);
+        assert.equal(zero.movimentacao, null);
+    });
+
+    it("recusa ajuste acima do valor máximo", () => {
+        const grandes = [mov({ id: 1, valor: 999999.99 }), mov({ id: 2, valor: 999999.99 })];
+        assert.match(Regras.criarAjusteDeSaldo(grandes, ano2025, 1).erro, /período menor/);
+    });
+
+    it("a descrição do ajuste cabe no limite em todos os formatos", () => {
+        const periodo = { inicio: "2025-11", fim: "2026-02" };
+        const { movimentacao } = Regras.criarAjusteDeSaldo([mov()], periodo, 1);
+        assert.equal(movimentacao.descricao, "Saldo de 11/2025 a 02/2026");
+        assert.ok(movimentacao.descricao.length <= Regras.LIMITES.DESCRICAO_MAX);
     });
 });
 
@@ -585,18 +652,22 @@ describe("exportação v3", () => {
         assert.equal(Regras.montarExportacao(lista, "x").periodo, null);
     });
 
-    it("a importação devolve o período informado no arquivo", () => {
-        const arquivo = JSON.parse(JSON.stringify(Regras.montarExportacao([mov({ id: 5 })], "x", { inicio: "2025-01", fim: "2025-12" })));
+    it("a importação devolve o período do arquivo e mantém o campo ajuste", () => {
+        const ajuste = { ...mov({ id: 5, categoria: "Ajuste de saldo", subcategoria: "" }), ajuste: { inicio: "2025-01", fim: "2025-12", quantidade: 3 } };
+        const arquivo = JSON.parse(JSON.stringify(Regras.montarExportacao([ajuste], "x", { inicio: "2025-01", fim: "2025-12" })));
         const lido = Regras.lerMovimentacoesImportadas(arquivo, (i) => i);
         assert.deepEqual(lido.periodo, { inicio: "2025-01", fim: "2025-12" });
-        assert.equal(lido.lista.length, 1);
+        assert.deepEqual(lido.lista[0].ajuste, { inicio: "2025-01", fim: "2025-12", quantidade: 3 });
     });
 
-    it("ignora período inválido no arquivo", () => {
-        const arquivo = { periodo: { inicio: "2025-12", fim: "2025-01" }, movimentacoes: [mov()] };
+    it("ignora período e ajuste inválidos no arquivo", () => {
+        const arquivo = {
+            periodo: { inicio: "2025-12", fim: "2025-01" },
+            movimentacoes: [{ ...mov(), ajuste: { inicio: "abc" } }]
+        };
         const lido = Regras.lerMovimentacoesImportadas(arquivo, (i) => i);
         assert.equal(lido.periodo, null);
-        assert.equal(lido.lista.length, 1);
+        assert.equal(lido.lista[0].ajuste, undefined);
         assert.equal(Regras.lerMovimentacoesImportadas([mov()], (i) => i).periodo, null);
     });
 });
