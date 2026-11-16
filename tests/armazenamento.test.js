@@ -107,3 +107,22 @@ describe("Armazenamento", () => {
         assert.equal(Armazenamento.carregarTema(), "escuro");
     });
 });
+
+describe("Armazenamento: espaço usado", () => {
+    beforeEach(() => {
+        globalThis.localStorage = criarLocalStorageFalso();
+    });
+
+    it("informa o tamanho das movimentações salvas (0 quando não há nada)", () => {
+        assert.equal(Armazenamento.tamanhoDasMovimentacoes(), 0);
+        const lista = [{ id: 1, tipo: "entrada", valor: 10, data: "2026-11-10", descricao: "Teste" }];
+        Armazenamento.salvarMovimentacoes(lista);
+        assert.equal(Armazenamento.tamanhoDasMovimentacoes(), JSON.stringify(lista).length);
+        assert.ok(Armazenamento.LIMITE_APROXIMADO > 0);
+    });
+
+    it("devolve 0 se o localStorage estiver bloqueado", () => {
+        globalThis.localStorage = { getItem: () => { throw new Error("bloqueado"); } };
+        assert.equal(Armazenamento.tamanhoDasMovimentacoes(), 0);
+    });
+});

@@ -312,6 +312,27 @@
             <div id="exportar-periodo"></div>
             <p id="exportar-previa" class="dialogo-previa" aria-live="polite"></p>
 
+            <label class="opcao-check">
+                <input type="checkbox" id="exportar-remover">
+                <span>
+                    Remover essas movimentações da Coinn depois de exportar
+                    <small id="exportar-espaco">Libera espaço no navegador. Dá para trazer de volta importando o arquivo.</small>
+                </span>
+            </label>
+
+            <div id="exportar-remover-opcoes" class="dialogo-subopcoes" hidden>
+                <label class="opcao-check">
+                    <input type="checkbox" id="exportar-ajuste" checked>
+                    <span>
+                        Manter o saldo igual
+                        <small id="exportar-ajuste-texto">Guarda o resultado do período em uma movimentação "Ajuste de saldo".</small>
+                    </span>
+                </label>
+                <p id="exportar-alerta" class="dialogo-alerta" hidden></p>
+            </div>
+
+            <p id="exportar-erro" class="mensagem-erro" role="alert" hidden></p>
+
             <div class="dialogo-botoes">
                 <button type="button" class="btn-cancelar" data-fechar>Cancelar</button>
                 <button type="submit" id="btn-confirmar-exportar">Exportar</button>

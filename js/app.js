@@ -5,7 +5,7 @@
  * movimentações futuras (saldo atual x previsto), visão Geral / Mensal (com filtro De/Até
  * no histórico) e seleção de várias movimentações para excluir de uma vez.
  * Na barra do topo: mostrar/ocultar valores, modo claro/noturno e exportar/importar os dados (#21):
- * exportar um mês, vários meses, um ano ou tudo.
+ * exportar um mês, vários meses, um ano ou tudo (e, se quiser, remover esse período da Coinn).
  *
  * Este arquivo só cuida da tela (ler o formulário, desenhar a lista, reagir a cliques).
  * - As regras de negócio (validar, calcular, filtrar, ordenar) ficam em regras.js.
@@ -110,6 +110,13 @@ const dialogoExportarEl = document.getElementById("dialogo-exportar");
 const formExportarEl = document.getElementById("form-exportar");
 const exportarPeriodoEl = document.getElementById("exportar-periodo");
 const exportarPreviaEl = document.getElementById("exportar-previa");
+const exportarRemoverEl = document.getElementById("exportar-remover");
+const exportarEspacoEl = document.getElementById("exportar-espaco");
+const exportarRemoverOpcoesEl = document.getElementById("exportar-remover-opcoes");
+const exportarAjusteEl = document.getElementById("exportar-ajuste");
+const exportarAjusteTextoEl = document.getElementById("exportar-ajuste-texto");
+const exportarAlertaEl = document.getElementById("exportar-alerta");
+const exportarErroEl = document.getElementById("exportar-erro");
 const btnConfirmarExportarEl = document.getElementById("btn-confirmar-exportar");
 
 // ---------- Estado ----------
@@ -208,6 +215,8 @@ const seletorExportar = criarSeletorPeriodo(exportarPeriodoEl, "exportar",
     atualizarPreviaExportar);
 
 // Diálogo de exportar
+exportarRemoverEl.addEventListener("change", atualizarPreviaExportar);
+exportarAjusteEl.addEventListener("change", atualizarPreviaExportar);
 formExportarEl.addEventListener("submit", confirmarExportar);
 document.querySelectorAll("dialog [data-fechar]").forEach((botao) => {
     botao.addEventListener("click", () => botao.closest("dialog").close());
@@ -1145,7 +1154,7 @@ function criarSeletorPeriodo(container, prefixo, tipos, aoMudar) {
     return Object.freeze({ definirOpcoes, definirEscolha, lerEscolha, mostrarErro });
 }
 
-// ---------- #21 Exportar dados (por período) ----------
+// ---------- #21 Exportar dados (por período, com opção de remover) ----------
 
 function abrirExportar() {
     fecharMenuDados();
@@ -1160,6 +1169,8 @@ function abrirExportar() {
         anos: Regras.listarAnos(movimentacoes)
     });
     seletorExportar.definirEscolha({ tipo: TIPO_PERIODO.TUDO });
+    exportarRemoverEl.checked = false;
+    exportarAjusteEl.checked = true;
     atualizarPreviaExportar();
     dialogoExportarEl.showModal();
 }
@@ -1180,6 +1191,7 @@ function lerExportacao() {
 function atualizarPreviaExportar() {
     const exportacao = lerExportacao();
     seletorExportar.mostrarErro(exportacao.erro);
+    exportarErroEl.hidden = true;
     if (exportacao.erro) {
         exportarPreviaEl.textContent = "";
         btnConfirmarExportarEl.disabled = true;
@@ -1192,6 +1204,8 @@ function atualizarPreviaExportar() {
     if (lista.length === 0) {
         exportarPreviaEl.textContent = `Nenhuma movimentação em ${descricao}.`;
         btnConfirmarExportarEl.disabled = true;
+        exportarRemoverEl.disabled = true;
+        exportarRemoverOpcoesEl.hidden = true;
         return;
     }
 
@@ -1204,7 +1218,45 @@ function atualizarPreviaExportar() {
             `Resultado: ${saldo > 0 && valoresVisiveis ? "+" : ""}${exibirValor(saldo)}`
         ])
     );
+
+    // Remover: só períodos que já terminaram
+    const erroRemocao = Regras.validarRemocaoDoPeriodo(periodo, hoje());
+    exportarRemoverEl.disabled = Boolean(erroRemocao);
+    if (erroRemocao) exportarRemoverEl.checked = false;
+    const usado = Armazenamento.tamanhoDasMovimentacoes();
+    exportarEspacoEl.textContent = erroRemocao
+        || `Libera cerca de ${textoTamanho(JSON.stringify(lista).length)} dos ${textoTamanho(usado)} que a Coinn usa no navegador `
+        + `(o limite é de uns ${textoTamanho(Armazenamento.LIMITE_APROXIMADO)}). Para trazer de volta, importe o arquivo.`;
+
+    const remover = exportarRemoverEl.checked;
+    exportarRemoverOpcoesEl.hidden = !remover;
+    btnConfirmarExportarEl.textContent = remover ? "Exportar e remover" : "Exportar";
     btnConfirmarExportarEl.disabled = false;
+    if (!remover) return;
+
+    // Ajuste de saldo: guarda o resultado do período para o saldo não mudar
+    const ajuste = Regras.criarAjusteDeSaldo(lista, periodo, 0);
+    exportarAjusteEl.disabled = !ajuste.movimentacao;
+    exportarAlertaEl.hidden = true;
+
+    if (ajuste.erro) {
+        exportarAjusteTextoEl.textContent = ajuste.erro;
+        exportarAjusteEl.checked = false;
+    } else if (!ajuste.movimentacao) {
+        exportarAjusteTextoEl.textContent = "O resultado do período é zero: o saldo não muda, não precisa de ajuste.";
+    } else {
+        const mov = ajuste.movimentacao;
+        const sinal = mov.tipo === TIPO.ENTRADA ? "+" : "-";
+        exportarAjusteTextoEl.textContent = `Cria "${mov.descricao}" (categoria "${Regras.CATEGORIA_AJUSTE}") `
+            + `com ${valoresVisiveis ? sinal : ""}${exibirValor(mov.valor)} em ${Regras.formatarData(mov.data)}, `
+            + `no lugar das ${textoQuantidade(lista.length)}.`;
+    }
+
+    if (ajuste.movimentacao && !exportarAjusteEl.checked) {
+        exportarAlertaEl.textContent = `Sem o ajuste, o saldo de hoje muda em ${saldo > 0 && valoresVisiveis ? "-" : ""}`
+            + `${exibirValor(Math.abs(saldo))}, porque essas movimentações saem da conta.`;
+        exportarAlertaEl.hidden = false;
+    }
 }
 
 function confirmarExportar(evento) {
@@ -1213,15 +1265,59 @@ function confirmarExportar(evento) {
     if (exportacao.erro || exportacao.lista.length === 0) return;
 
     const { periodo, lista, tudo } = exportacao;
+    const remover = exportarRemoverEl.checked && !exportarRemoverEl.disabled;
+    const comAjuste = remover && exportarAjusteEl.checked && !exportarAjusteEl.disabled;
     const descricao = tudo ? "todos os dados" : Regras.descreverPeriodo(periodo);
+
+    // Confere o ajuste antes de baixar, para não gerar o arquivo e depois falhar
+    const agora = Date.now();
+    const ajuste = comAjuste ? Regras.criarAjusteDeSaldo(lista, periodo, agora) : { movimentacao: null };
+    if (ajuste.erro) {
+        exportarErroEl.textContent = ajuste.erro;
+        exportarErroEl.hidden = false;
+        return;
+    }
+
     const nome = tudo
         ? `coinn-movimentacoes-${hoje()}.json`
         : `coinn-movimentacoes-${Regras.nomeArquivoPeriodo(periodo)}.json`;
-    const conteudo = Regras.montarExportacao(lista, new Date().toISOString(), periodo);
+    const conteudo = Regras.montarExportacao(lista, new Date(agora).toISOString(), periodo);
     baixarArquivo(JSON.stringify(conteudo, null, 2), nome, "application/json");
 
+    if (!remover) {
+        dialogoExportarEl.close();
+        mostrarAviso(`${textoQuantidade(lista.length)} ${lista.length === 1 ? "exportada" : "exportadas"} (${descricao}).`);
+        return;
+    }
+
+    const confirmou = confirm(
+        `O arquivo "${nome}" foi gerado. Confira se ele foi salvo antes de continuar.\n\n` +
+        `Remover agora as ${textoQuantidade(lista.length)} (${descricao}) da Coinn?\n` +
+        (ajuste.movimentacao
+            ? `O saldo continua igual: entra o ajuste "${ajuste.movimentacao.descricao}".`
+            : "O saldo vai mudar, porque elas saem da conta.")
+    );
+    if (!confirmou) {
+        dialogoExportarEl.close();
+        mostrarAviso("Arquivo exportado. Nada foi removido.");
+        return;
+    }
+
+    const { restantes } = Regras.removerPeriodo(movimentacoes, periodo);
+    const novaLista = ajuste.movimentacao ? [...restantes, ajuste.movimentacao] : restantes;
+    if (!Armazenamento.salvarMovimentacoes(novaLista)) {
+        exportarErroEl.textContent = "Não foi possível salvar. As movimentações continuam na Coinn.";
+        exportarErroEl.hidden = false;
+        return;
+    }
+
+    const removidos = new Set(lista.map((mov) => mov.id));
+    movimentacoes = novaLista;
+    if (idEmEdicao !== null && removidos.has(idEmEdicao)) sairModoEdicao();
+    selecionadas.clear();
     dialogoExportarEl.close();
-    mostrarAviso(`${textoQuantidade(lista.length)} ${lista.length === 1 ? "exportada" : "exportadas"} (${descricao}).`);
+    atualizarTela();
+    mostrarAviso(`${textoQuantidade(lista.length)} ${lista.length === 1 ? "exportada e removida" : "exportadas e removidas"}.`);
 }
 
 // ---------- #21 Importar dados ----------
@@ -1341,6 +1437,13 @@ function baixarArquivo(conteudo, nome, tipo) {
     link.click();
     link.remove();
     URL.revokeObjectURL(url);
+}
+
+// "38 KB", "1,2 MB"
+function textoTamanho(caracteres) {
+    const kb = caracteres / 1024;
+    if (kb < 1024) return `${Math.max(1, Math.round(kb)).toLocaleString("pt-BR")} KB`;
+    return `${(kb / 1024).toLocaleString("pt-BR", { maximumFractionDigits: 1 })} MB`;
 }
 
 // "AAAA-MM" de hoje

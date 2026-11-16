@@ -15,6 +15,9 @@
 const Armazenamento = (function () {
     "use strict";
 
+    // Espaço que os navegadores costumam dar ao localStorage de cada site (aproximado)
+    const LIMITE_APROXIMADO = 5 * 1024 * 1024;
+
     // Chave única do projeto, para não colidir com outros apps no mesmo navegador
     const CHAVE_MOVIMENTACOES = "coinn.movimentacoes";
 
@@ -69,6 +72,17 @@ const Armazenamento = (function () {
         }
     }
 
+    // Tamanho aproximado das movimentações salvas, em caracteres (≈ bytes).
+    // Os navegadores costumam permitir cerca de 5 MB por site no localStorage.
+    function tamanhoDasMovimentacoes() {
+        try {
+            const dados = localStorage.getItem(CHAVE_MOVIMENTACOES);
+            return dados ? dados.length : 0;
+        } catch {
+            return 0;
+        }
+    }
+
     // Retorna true se os valores devem aparecer (padrão), false se o usuário escolheu ocultar
     function carregarValoresVisiveis() {
         try {
@@ -107,9 +121,11 @@ const Armazenamento = (function () {
 
     return Object.freeze({
         TEMA,
+        LIMITE_APROXIMADO,
         carregarMovimentacoes,
         salvarMovimentacoes,
         removerTodasMovimentacoes,
+        tamanhoDasMovimentacoes,
         carregarValoresVisiveis,
         salvarValoresVisiveis,
         carregarTema,

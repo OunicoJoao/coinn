@@ -21,9 +21,12 @@
  *
  * Modelo de dados de uma movimentação:
  *   { id, tipo ("entrada" | "saida"), valor, data ("AAAA-MM-DD"), descricao,
- *     categoria, subcategoria, dataModificacao? }
+ *     categoria, subcategoria, dataModificacao?, ajuste? }
  *   categoria e subcategoria são texto livre e opcionais ("" quando não informadas).
  *   Só existe subcategoria se houver categoria.
+ *   ajuste = { inicio, fim, quantidade }: só existe na movimentação "Ajuste de saldo",
+ *   criada quando um período é exportado e removido (guarda o resultado daquele período
+ *   para o saldo não mudar).
  */
 
 /* exported Regras */
@@ -67,7 +70,7 @@ const Regras = (function () {
 
     // Versão do formato do arquivo exportado.
     // v1: sem categoria | v2: com categoria e subcategoria
-    // v3: com o período exportado e um resumo (arquivos v1 e v2 continuam aceitos)
+    // v3: com o período exportado, um resumo e o campo "ajuste" (arquivos v1 e v2 continuam aceitos)
     const VERSAO_EXPORTACAO = 3;
 
     // Como escolher o período (exportar e importar)
@@ -77,6 +80,9 @@ const Regras = (function () {
         ANO: "ano",
         TUDO: "tudo"
     });
+
+    // Categoria da movimentação criada ao exportar e remover um período
+    const CATEGORIA_AJUSTE = "Ajuste de saldo";
 
     const NOMES_MESES = [
         "Janeiro", "Fevereiro", "Março", "Abril", "Maio", "Junho",
@@ -506,11 +512,68 @@ const Regras = (function () {
         return `${formatarMes(inicio)} a ${formatarMes(fim)}`;
     }
 
+    // Versão curta, que cabe na descrição do ajuste: "11/2026" | "2026" | "01/2026 a 03/2026"
+    function descreverPeriodoCurto(periodo) {
+        const curto = (anoMes) => `${anoMes.slice(5)}/${anoMes.slice(0, 4)}`;
+        if (periodo.inicio === periodo.fim) return curto(periodo.inicio);
+        if (ehAnoInteiro(periodo)) return periodo.inicio.slice(0, 4);
+        return `${curto(periodo.inicio)} a ${curto(periodo.fim)}`;
+    }
+
     // Parte do nome do arquivo: "2026-11" | "2026" | "2026-01_a_2026-03"
     function nomeArquivoPeriodo(periodo) {
         if (periodo.inicio === periodo.fim) return periodo.inicio;
         if (ehAnoInteiro(periodo)) return periodo.inicio.slice(0, 4);
         return `${periodo.inicio}_a_${periodo.fim}`;
+    }
+
+    // ---------- Exportar e remover um período ----------
+
+    // Só dá para remover meses que já terminaram: o mês atual e os seguintes ainda mudam
+    // (e o ajuste, que fica no último dia do período, precisa ser uma data que já passou)
+    function validarRemocaoDoPeriodo(periodo, hoje) {
+        if (periodo.fim >= hoje.slice(0, 7)) {
+            return "Só dá para remover meses que já terminaram. Escolha um período antes do mês atual.";
+        }
+        return null;
+    }
+
+    // Separa as movimentações do período (que vão para o arquivo e saem da Coinn) das que ficam
+    function removerPeriodo(lista, periodo) {
+        return {
+            restantes: lista.filter((mov) => !estaNoPeriodo(mov, periodo)),
+            removidas: filtrarPorPeriodo(lista, periodo)
+        };
+    }
+
+    // Movimentação "Ajuste de saldo": guarda o resultado do período removido, no último dia
+    // dele, para o saldo de hoje e dos meses seguintes continuar igual.
+    // Devolve { movimentacao } (null se o resultado for zero) ou { erro }.
+    function criarAjusteDeSaldo(removidas, periodo, id) {
+        const { saldo } = calcularResumo(removidas);
+        if (saldo === 0) return { movimentacao: null };
+
+        const valor = Math.abs(saldo);
+        if (valor > LIMITES.VALOR_MAX) {
+            return { erro: `O resultado do período passa de ${formatarMoeda(LIMITES.VALOR_MAX)}. Escolha um período menor.` };
+        }
+
+        return {
+            movimentacao: {
+                id,
+                tipo: saldo > 0 ? TIPO.ENTRADA : TIPO.SAIDA,
+                valor,
+                data: ultimoDiaDoMes(periodo.fim),
+                descricao: `Saldo de ${descreverPeriodoCurto(periodo)}`,
+                categoria: CATEGORIA_AJUSTE,
+                subcategoria: "",
+                ajuste: { inicio: periodo.inicio, fim: periodo.fim, quantidade: removidas.length }
+            }
+        };
+    }
+
+    function ehAjuste(mov) {
+        return Boolean(mov.ajuste);
     }
 
     // ---------- Exportar e importar ----------
@@ -579,6 +642,10 @@ const Regras = (function () {
             if (typeof item.dataModificacao === "string") {
                 movimentacao.dataModificacao = item.dataModificacao;
             }
+            const ajuste = lerPeriodo(item.ajuste);
+            if (ajuste) {
+                movimentacao.ajuste = { ...ajuste, quantidade: Number(item.ajuste.quantidade) || 0 };
+            }
             lista.push(movimentacao);
         });
 
@@ -628,6 +695,7 @@ const Regras = (function () {
         FILTRO_SEM,
         SITUACAO_MES,
         TIPO_PERIODO,
+        CATEGORIA_AJUSTE,
         arredondarCentavos,
         dataValida,
         validarMovimentacao,
@@ -665,7 +733,12 @@ const Regras = (function () {
         estaNoPeriodo,
         filtrarPorPeriodo,
         descreverPeriodo,
+        descreverPeriodoCurto,
         nomeArquivoPeriodo,
+        validarRemocaoDoPeriodo,
+        removerPeriodo,
+        criarAjusteDeSaldo,
+        ehAjuste,
         montarExportacao,
         lerMovimentacoesImportadas,
         formatarMoeda,
