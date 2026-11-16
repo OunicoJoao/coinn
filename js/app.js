@@ -5,7 +5,8 @@
  * movimentações futuras (saldo atual x previsto), visão Geral / Mensal (com filtro De/Até
  * no histórico) e seleção de várias movimentações para excluir de uma vez.
  * Na barra do topo: mostrar/ocultar valores, modo claro/noturno e exportar/importar os dados (#21):
- * exportar um mês, vários meses, um ano ou tudo (e, se quiser, remover esse período da Coinn).
+ * exportar um mês, vários meses, um ano ou tudo (e, se quiser, remover esse período da Coinn);
+ * importar incorporando aos dados atuais (com tratamento de conflitos) ou substituindo.
  *
  * Este arquivo só cuida da tela (ler o formulário, desenhar a lista, reagir a cliques).
  * - As regras de negócio (validar, calcular, filtrar, ordenar) ficam em regras.js.
@@ -16,7 +17,7 @@
 
 // ---------- Constantes ----------
 
-const { TIPO, LIMITES, FILTRO_TODOS, FILTRO_SEM, SITUACAO_MES, TIPO_PERIODO } = Regras;
+const { TIPO, LIMITES, FILTRO_TODOS, FILTRO_SEM, SITUACAO_MES, TIPO_PERIODO, MODO_IMPORTACAO } = Regras;
 
 // Visões do topo da página
 const VISAO = Object.freeze({
@@ -31,6 +32,9 @@ const NOME_PERIODO = Object.freeze({
     [TIPO_PERIODO.ANO]: "Ano",
     [TIPO_PERIODO.TUDO]: "Tudo"
 });
+
+// Quantas movimentações em conflito aparecem na lista do diálogo de importação
+const MAX_CONFLITOS_MOSTRADOS = 5;
 
 // Texto mostrado no lugar dos valores quando o "olho" está fechado
 const VALOR_OCULTO = "R$ •••••";
@@ -119,6 +123,21 @@ const exportarAlertaEl = document.getElementById("exportar-alerta");
 const exportarErroEl = document.getElementById("exportar-erro");
 const btnConfirmarExportarEl = document.getElementById("btn-confirmar-exportar");
 
+// Diálogo de importar
+const dialogoImportarEl = document.getElementById("dialogo-importar");
+const formImportarEl = document.getElementById("form-importar");
+const importarArquivoEl = document.getElementById("importar-arquivo");
+const importarPeriodoEl = document.getElementById("importar-periodo");
+const importarModoPeriodoTextoEl = document.getElementById("importar-modo-periodo-texto");
+const importarModoTudoTextoEl = document.getElementById("importar-modo-tudo-texto");
+const importarPreviaEl = document.getElementById("importar-previa");
+const importarConflitosEl = document.getElementById("importar-conflitos");
+const importarConflitosTextoEl = document.getElementById("importar-conflitos-texto");
+const importarConflitosListaEl = document.getElementById("importar-conflitos-lista");
+const importarAlertaEl = document.getElementById("importar-alerta");
+const importarErroEl = document.getElementById("importar-erro");
+const btnConfirmarImportarEl = document.getElementById("btn-confirmar-importar");
+
 // ---------- Estado ----------
 
 // normalizarMovimentacao garante os campos de categoria em dados salvos antes deles existirem
@@ -147,6 +166,9 @@ let temaAtual = Armazenamento.carregarTema();
 
 // Guarda o timer do aviso para poder reiniciá-lo
 let timerAviso = null;
+
+// Arquivo aberto no diálogo de importar: { nome, lista, ignoradas, periodoDoArquivo }
+let importacao = null;
 
 // ---------- Inicialização ----------
 
@@ -204,20 +226,33 @@ btnTemaEl.addEventListener("click", alternarTema);
 btnDadosEl.addEventListener("click", alternarMenuDados);
 btnExportarEl.addEventListener("click", abrirExportar);
 btnImportarEl.addEventListener("click", () => arquivoImportarEl.click());
-arquivoImportarEl.addEventListener("change", importarDados);
+arquivoImportarEl.addEventListener("change", abrirImportar);
 document.addEventListener("click", fecharMenuAoClicarFora);
 document.addEventListener("keydown", fecharMenuComEsc);
 document.addEventListener("keydown", cancelarSelecaoComEsc);
 
-// Seletor de período do diálogo de exportar
+// Seletores de período: exportar e importar
 const seletorExportar = criarSeletorPeriodo(exportarPeriodoEl, "exportar",
     [TIPO_PERIODO.TUDO, TIPO_PERIODO.MES, TIPO_PERIODO.MESES, TIPO_PERIODO.ANO],
     atualizarPreviaExportar);
+const seletorImportar = criarSeletorPeriodo(importarPeriodoEl, "importar",
+    [TIPO_PERIODO.TUDO, TIPO_PERIODO.MES, TIPO_PERIODO.MESES, TIPO_PERIODO.ANO],
+    atualizarPreviaImportar);
 
-// Diálogo de exportar
+// Diálogos de exportar e importar
 exportarRemoverEl.addEventListener("change", atualizarPreviaExportar);
 exportarAjusteEl.addEventListener("change", atualizarPreviaExportar);
 formExportarEl.addEventListener("submit", confirmarExportar);
+formImportarEl.addEventListener("change", (evento) => {
+    // Os seletores de período já avisam sozinhos; aqui só os rádios de modo e de conflito
+    if (evento.target.name === "modo-importar" || evento.target.name === "conflito-importar") {
+        atualizarPreviaImportar();
+    }
+});
+formImportarEl.addEventListener("submit", confirmarImportar);
+dialogoImportarEl.addEventListener("close", () => {
+    importacao = null;
+});
 document.querySelectorAll("dialog [data-fechar]").forEach((botao) => {
     botao.addEventListener("click", () => botao.closest("dialog").close());
 });
@@ -1320,9 +1355,9 @@ function confirmarExportar(evento) {
     mostrarAviso(`${textoQuantidade(lista.length)} ${lista.length === 1 ? "exportada e removida" : "exportadas e removidas"}.`);
 }
 
-// ---------- #21 Importar dados ----------
+// ---------- #21 Importar dados (por período, incorporando ou substituindo) ----------
 
-async function importarDados() {
+async function abrirImportar() {
     fecharMenuDados();
 
     const arquivo = arquivoImportarEl.files[0];
@@ -1344,39 +1379,228 @@ async function importarDados() {
         return;
     }
 
-    const importadas = resultado.lista;
-    const qtdImportadas = importadas.length;
-    const textoImportadas = `${qtdImportadas} ${qtdImportadas === 1 ? "movimentação" : "movimentações"}`;
+    importacao = {
+        nome: arquivo.name,
+        lista: resultado.lista,
+        ignoradas: resultado.ignoradas,
+        periodoDoArquivo: resultado.periodo
+    };
 
-    // A importação substitui os dados atuais, então pede confirmação se já houver algo
-    if (movimentacoes.length > 0) {
-        const atuais = movimentacoes.length === 1
-            ? "a movimentação atual"
-            : `as ${movimentacoes.length} movimentações atuais`;
+    const limites = Regras.limitesDosMeses(importacao.lista);
+    const partes = [arquivo.name, textoQuantidade(importacao.lista.length), Regras.descreverPeriodo(limites)];
+    if (importacao.ignoradas > 0) {
+        partes.push(`${importacao.ignoradas} ${importacao.ignoradas === 1 ? "inválida ignorada" : "inválidas ignoradas"}`);
+    }
+    importarArquivoEl.replaceChildren(criarLinhaDeTexto(partes));
+
+    seletorImportar.definirOpcoes({
+        meses: Regras.listarMeses(importacao.lista).reverse(),
+        anos: Regras.listarAnos(importacao.lista)
+    });
+    seletorImportar.definirEscolha({ tipo: TIPO_PERIODO.TUDO });
+    formImportarEl.querySelector('input[name="modo-importar"][value="incorporar"]').checked = true;
+    formImportarEl.querySelectorAll('input[name="conflito-importar"]').forEach((radio) => {
+        radio.checked = false;
+    });
+    importarErroEl.hidden = true;
+
+    atualizarPreviaImportar();
+    dialogoImportarEl.showModal();
+}
+
+// O que vai ser importado com as escolhas atuais do diálogo
+function lerImportacao() {
+    const periodo = Regras.resolverPeriodo(seletorImportar.lerEscolha(), importacao.lista);
+    if (periodo.erro) return { erro: periodo.erro };
+
+    const modo = formImportarEl.querySelector('input[name="modo-importar"]:checked').value;
+    const conflitoMarcado = formImportarEl.querySelector('input[name="conflito-importar"]:checked');
+    return {
+        periodo,
+        modo,
+        escolhidas: Regras.filtrarPorPeriodo(importacao.lista, periodo),
+        conflito: conflitoMarcado ? conflitoMarcado.value : null
+    };
+}
+
+function atualizarPreviaImportar() {
+    if (!importacao) return;
+
+    const leitura = lerImportacao();
+    seletorImportar.mostrarErro(leitura.erro);
+    importarConflitosEl.hidden = true;
+    importarAlertaEl.hidden = true;
+    if (leitura.erro) {
+        importarPreviaEl.textContent = "";
+        btnConfirmarImportarEl.disabled = true;
+        return;
+    }
+
+    const { periodo, modo, escolhidas, conflito } = leitura;
+    const descricao = Regras.descreverPeriodo(periodo);
+    const minhasNoPeriodo = Regras.filtrarPorPeriodo(movimentacoes, periodo).length;
+
+    importarModoPeriodoTextoEl.textContent = `Apaga as suas ${textoQuantidade(minhasNoPeriodo)} desse período `
+        + `(${descricao}) e coloca as do arquivo. O resto fica igual.`;
+    importarModoTudoTextoEl.textContent = movimentacoes.length
+        ? `Apaga as ${textoQuantidade(movimentacoes.length)} da Coinn e fica só com o arquivo.`
+        : "A Coinn está vazia: fica só com o arquivo.";
+
+    if (escolhidas.length === 0) {
+        importarPreviaEl.textContent = `O arquivo não tem movimentações em ${descricao}.`;
+        btnConfirmarImportarEl.disabled = true;
+        return;
+    }
+
+    if (modo === MODO_IMPORTACAO.SUBSTITUIR_PERIODO) {
+        importarPreviaEl.replaceChildren(
+            criarLinhaDeTexto([descricao, `entram ${textoQuantidade(escolhidas.length)} do arquivo`]),
+            criarLinhaDeTexto([`saem as suas ${textoQuantidade(minhasNoPeriodo)} desse período`])
+        );
+        btnConfirmarImportarEl.disabled = false;
+        return;
+    }
+
+    if (modo === MODO_IMPORTACAO.SUBSTITUIR_TUDO) {
+        importarPreviaEl.replaceChildren(
+            criarLinhaDeTexto([`Fica só com as ${textoQuantidade(escolhidas.length)} do arquivo (${descricao})`]),
+            criarLinhaDeTexto([`saem todas as ${textoQuantidade(movimentacoes.length)} atuais`])
+        );
+        btnConfirmarImportarEl.disabled = false;
+        return;
+    }
+
+    // Incorporar
+    const { novas, iguais, conflitos } = Regras.compararImportacao(movimentacoes, escolhidas);
+    const desfeitos = Regras.ajustesDesfeitos(movimentacoes, importacao.periodoDoArquivo, periodo);
+    const sobrepostos = Regras.ajustesSobrepostos(movimentacoes, periodo, desfeitos);
+
+    const linhas = [
+        criarLinhaDeTexto([`${descricao}: ${textoQuantidade(escolhidas.length)} no arquivo`]),
+        criarLinhaDeTexto([
+            `${novas.length} ${novas.length === 1 ? "nova" : "novas"}`,
+            `${iguais.length} já ${iguais.length === 1 ? "está" : "estão"} na Coinn`,
+            `${conflitos.length} em conflito`
+        ])
+    ];
+    desfeitos.forEach((mov) => {
+        linhas.push(criarLinhaDeTexto([`O ajuste "${mov.descricao}" sai, porque as movimentações originais voltam`]));
+    });
+    importarPreviaEl.replaceChildren(...linhas);
+
+    if (sobrepostos.length > 0) {
+        const nomes = sobrepostos.map((mov) => `"${mov.descricao}"`).join(", ");
+        importarAlertaEl.textContent = `Atenção: a Coinn tem o ajuste de saldo ${nomes} nesse período. `
+            + "Importar essas movimentações pode contar os mesmos valores duas vezes. "
+            + "Para desfazer um ajuste, importe o arquivo inteiro daquela exportação.";
+        importarAlertaEl.hidden = false;
+    }
+
+    if (conflitos.length > 0) {
+        mostrarConflitos(conflitos);
+    }
+
+    const nadaMuda = novas.length === 0 && conflitos.length === 0 && desfeitos.length === 0;
+    if (nadaMuda) {
+        importarPreviaEl.append(criarLinhaDeTexto(["Nada novo: tudo isso já está na Coinn."]));
+    }
+    btnConfirmarImportarEl.disabled = nadaMuda || (conflitos.length > 0 && !conflito);
+}
+
+// Lista as movimentações em conflito: "Mercado (12/10/2025): valor R$ 450,00 → R$ 460,00"
+function mostrarConflitos(conflitos) {
+    const NOMES_CAMPOS = {
+        tipo: "tipo", valor: "valor", data: "data", descricao: "descrição", categoria: "categoria", subcategoria: "subcategoria"
+    };
+    const formatar = (campo, valor) => {
+        if (campo === "valor") return exibirValor(valor);
+        if (campo === "data") return Regras.formatarData(valor);
+        if (campo === "tipo") return valor === TIPO.ENTRADA ? "entrada" : "saída";
+        return valor || "(vazio)";
+    };
+
+    importarConflitosTextoEl.textContent = conflitos.length === 1
+        ? "1 movimentação do arquivo já existe na Coinn com dados diferentes:"
+        : `${conflitos.length} movimentações do arquivo já existem na Coinn com dados diferentes:`;
+
+    const itens = conflitos.slice(0, MAX_CONFLITOS_MOSTRADOS).map(({ atual, importada }) => {
+        const li = document.createElement("li");
+        const nome = document.createElement("strong");
+        nome.textContent = `${atual.descricao} (${Regras.formatarData(atual.data)})`;
+        const diferencas = Regras.diferencasDeConteudo(atual, importada)
+            .map(({ campo, atual: minha, arquivo }) => (
+                `${NOMES_CAMPOS[campo]}: ${formatar(campo, minha)} → ${formatar(campo, arquivo)}`
+            ))
+            .join("; ");
+        li.append(nome, ` ${diferencas}`);
+        return li;
+    });
+    if (conflitos.length > MAX_CONFLITOS_MOSTRADOS) {
+        const resto = document.createElement("li");
+        resto.textContent = `e mais ${conflitos.length - MAX_CONFLITOS_MOSTRADOS}...`;
+        itens.push(resto);
+    }
+    importarConflitosListaEl.replaceChildren(...itens);
+    importarConflitosEl.hidden = false;
+}
+
+function confirmarImportar(evento) {
+    evento.preventDefault();
+    if (!importacao) return;
+
+    const leitura = lerImportacao();
+    if (leitura.erro || leitura.escolhidas.length === 0) return;
+    const { periodo, modo, escolhidas, conflito } = leitura;
+
+    if (modo === MODO_IMPORTACAO.SUBSTITUIR_TUDO && movimentacoes.length > 0) {
         const confirmou = confirm(
-            `O arquivo tem ${textoImportadas}.\n` +
-            `${qtdImportadas === 1 ? "Ela vai" : "Elas vão"} substituir ${atuais}. Continuar?`
+            `Apagar as ${textoQuantidade(movimentacoes.length)} da Coinn e ficar só com as ${escolhidas.length} do arquivo? `
+            + "Essa ação não pode ser desfeita."
         );
         if (!confirmou) return;
     }
 
-    if (!Armazenamento.salvarMovimentacoes(importadas)) {
-        mostrarAviso("Não foi possível salvar os dados importados.", "erro");
+    const comparacao = modo === MODO_IMPORTACAO.INCORPORAR
+        ? Regras.compararImportacao(movimentacoes, escolhidas)
+        : null;
+    const agora = Date.now();
+    const resultado = Regras.aplicarImportacao(movimentacoes, escolhidas, {
+        modo,
+        periodo,
+        periodoDoArquivo: importacao.periodoDoArquivo,
+        usarArquivoNosConflitos: conflito === "arquivo",
+        gerarId: (indice) => agora + indice
+    });
+
+    if (!Armazenamento.salvarMovimentacoes(resultado.lista)) {
+        importarErroEl.textContent = "Não foi possível salvar os dados importados.";
+        importarErroEl.hidden = false;
         return;
     }
 
-    movimentacoes = importadas;
-    if (idEmEdicao !== null) {
-        sairModoEdicao();
-    }
+    movimentacoes = resultado.lista;
+    if (idEmEdicao !== null) sairModoEdicao();
+    selecionadas.clear();
     resetarFiltros();
+    dialogoImportarEl.close();
     atualizarTela();
+    mostrarAviso(mensagemImportacao(modo, resultado, comparacao));
+}
 
-    let mensagem = `${textoImportadas} ${qtdImportadas === 1 ? "importada" : "importadas"}.`;
-    if (resultado.ignoradas > 0) {
-        mensagem += ` ${resultado.ignoradas} inválida(s) ignorada(s).`;
+function mensagemImportacao(modo, resultado, comparacao) {
+    const plural = (n, um, varios) => `${n} ${n === 1 ? um : varios}`;
+    if (modo !== MODO_IMPORTACAO.INCORPORAR) {
+        return `${plural(resultado.adicionadas, "movimentação importada", "movimentações importadas")}`
+            + ` (${plural(resultado.removidas, "substituída", "substituídas")}).`;
     }
-    mostrarAviso(mensagem);
+    const partes = [plural(resultado.adicionadas, "movimentação adicionada", "movimentações adicionadas")];
+    if (resultado.substituidas) partes.push(plural(resultado.substituidas, "atualizada", "atualizadas"));
+    if (comparacao.iguais.length) partes.push(plural(comparacao.iguais.length, "já existia", "já existiam"));
+    if (comparacao.conflitos.length && !resultado.substituidas) {
+        partes.push(plural(comparacao.conflitos.length, "mantida como estava", "mantidas como estavam"));
+    }
+    if (resultado.ajustesRemovidos) partes.push("ajuste de saldo desfeito");
+    return `${partes.join(", ")}.`;
 }
 
 // ---------- Aviso rápido ----------

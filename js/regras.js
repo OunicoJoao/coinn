@@ -81,8 +81,18 @@ const Regras = (function () {
         TUDO: "tudo"
     });
 
+    // Como juntar os dados de um arquivo importado com os dados atuais
+    const MODO_IMPORTACAO = Object.freeze({
+        INCORPORAR: "incorporar",          // junta: adiciona o que é novo, não apaga nada
+        SUBSTITUIR_PERIODO: "periodo",     // troca só as movimentações do período escolhido
+        SUBSTITUIR_TUDO: "tudo"            // apaga tudo e fica só com o arquivo
+    });
+
     // Categoria da movimentação criada ao exportar e remover um período
     const CATEGORIA_AJUSTE = "Ajuste de saldo";
+
+    // Campos que decidem se duas movimentações são "a mesma" na importação
+    const CAMPOS_CONTEUDO = Object.freeze(["tipo", "valor", "data", "descricao", "categoria", "subcategoria"]);
 
     const NOMES_MESES = [
         "Janeiro", "Fevereiro", "Março", "Abril", "Maio", "Junho",
@@ -655,6 +665,149 @@ const Regras = (function () {
         return { lista, ignoradas, periodo: Array.isArray(conteudo) ? null : lerPeriodo(conteudo.periodo) };
     }
 
+    // ---------- Juntar a importação com os dados atuais ----------
+
+    function chaveConteudo(mov) {
+        return JSON.stringify(CAMPOS_CONTEUDO.map((campo) => mov[campo]));
+    }
+
+    function mesmoConteudo(a, b) {
+        return chaveConteudo(a) === chaveConteudo(b);
+    }
+
+    // Campos diferentes entre a movimentação atual e a do arquivo: [{ campo, atual, arquivo }]
+    function diferencasDeConteudo(atual, arquivo) {
+        return CAMPOS_CONTEUDO
+            .filter((campo) => atual[campo] !== arquivo[campo])
+            .map((campo) => ({ campo, atual: atual[campo], arquivo: arquivo[campo] }));
+    }
+
+    // Separa as movimentações do arquivo em:
+    // - iguais: já existem na Coinn (mesmo id e mesmo conteúdo, ou outro id com o mesmo conteúdo)
+    // - conflitos: mesmo id de uma movimentação atual, mas com algum campo diferente
+    // - novas: o resto, que pode ser adicionado sem problema
+    // O mesmo conteúdo com outro id só conta como "igual" uma vez para cada movimentação atual
+    // (duas compras iguais no mesmo dia no arquivo, e só uma na Coinn = uma igual e uma nova).
+    function compararImportacao(atuais, importadas) {
+        const porId = new Map(atuais.map((mov) => [mov.id, mov]));
+        const disponiveis = new Map();
+        atuais.forEach((mov) => {
+            const chave = chaveConteudo(mov);
+            disponiveis.set(chave, (disponiveis.get(chave) || 0) + 1);
+        });
+        const usar = (mov) => {
+            const chave = chaveConteudo(mov);
+            disponiveis.set(chave, disponiveis.get(chave) - 1);
+        };
+
+        const novas = [];
+        const iguais = [];
+        const conflitos = [];
+        const semId = [];
+
+        // Primeiro as que têm o mesmo id de uma movimentação atual
+        importadas.forEach((importada) => {
+            const atual = porId.get(importada.id);
+            if (!atual) {
+                semId.push(importada);
+            } else if (mesmoConteudo(atual, importada)) {
+                iguais.push(importada);
+                usar(atual);
+            } else {
+                conflitos.push({ atual, importada });
+                usar(atual);
+            }
+        });
+
+        // Depois as outras: se o mesmo conteúdo ainda está "sobrando" na Coinn, é repetida
+        semId.forEach((importada) => {
+            if ((disponiveis.get(chaveConteudo(importada)) || 0) > 0) {
+                iguais.push(importada);
+                usar(importada);
+            } else {
+                novas.push(importada);
+            }
+        });
+
+        return { novas, iguais, conflitos };
+    }
+
+    // Ajustes de saldo que deixam de fazer sentido porque as movimentações originais voltam:
+    // o arquivo é a exportação daquele período e a importação traz o período inteiro.
+    function ajustesDesfeitos(atuais, periodoDoArquivo, periodoEscolhido) {
+        if (!periodoDoArquivo) return [];
+        return atuais.filter((mov) => ehAjuste(mov)
+            && mov.ajuste.inicio === periodoDoArquivo.inicio
+            && mov.ajuste.fim === periodoDoArquivo.fim
+            && periodoEscolhido.inicio <= mov.ajuste.inicio
+            && periodoEscolhido.fim >= mov.ajuste.fim);
+    }
+
+    // Ajustes de saldo que encostam no período importado e continuam: os valores daquele
+    // período podem contar em dobro (no ajuste e nas movimentações importadas)
+    function ajustesSobrepostos(atuais, periodoEscolhido, desfeitos = []) {
+        const ids = new Set(desfeitos.map((mov) => mov.id));
+        return atuais.filter((mov) => ehAjuste(mov)
+            && !ids.has(mov.id)
+            && mov.ajuste.inicio <= periodoEscolhido.fim
+            && mov.ajuste.fim >= periodoEscolhido.inicio);
+    }
+
+    // Monta a lista final da importação.
+    //   atuais: dados de hoje | importadas: movimentações do arquivo já filtradas pelo período
+    //   opcoes: { modo, periodo, periodoDoArquivo, usarArquivoNosConflitos, gerarId }
+    // Devolve { lista, adicionadas, substituidas, removidas, ajustesRemovidos }.
+    function aplicarImportacao(atuais, importadas, opcoes) {
+        const { modo, periodo, periodoDoArquivo, usarArquivoNosConflitos = false, gerarId } = opcoes;
+
+        if (modo === MODO_IMPORTACAO.SUBSTITUIR_TUDO) {
+            return {
+                lista: importadas,
+                adicionadas: importadas.length,
+                substituidas: 0,
+                removidas: atuais.length,
+                ajustesRemovidos: 0
+            };
+        }
+
+        if (modo === MODO_IMPORTACAO.SUBSTITUIR_PERIODO) {
+            const { restantes, removidas } = removerPeriodo(atuais, periodo);
+            // Um id que ainda existe fora do período ganha um id novo, para não repetir
+            const idsRestantes = new Set(restantes.map((mov) => mov.id));
+            const trazidas = importadas.map((mov, indice) => (
+                idsRestantes.has(mov.id) ? { ...mov, id: gerarId(indice) } : mov
+            ));
+            return {
+                lista: [...restantes, ...trazidas],
+                adicionadas: trazidas.length,
+                substituidas: 0,
+                removidas: removidas.length,
+                ajustesRemovidos: 0
+            };
+        }
+
+        // Incorporar
+        const { novas, conflitos } = compararImportacao(atuais, importadas);
+        const desfeitos = new Set(ajustesDesfeitos(atuais, periodoDoArquivo, periodo).map((mov) => mov.id));
+        const trocas = new Map(
+            usarArquivoNosConflitos ? conflitos.map(({ importada }) => [importada.id, importada]) : []
+        );
+
+        const lista = [
+            ...atuais
+                .filter((mov) => !desfeitos.has(mov.id))
+                .map((mov) => trocas.get(mov.id) || mov),
+            ...novas
+        ];
+        return {
+            lista,
+            adicionadas: novas.length,
+            substituidas: trocas.size,
+            removidas: 0,
+            ajustesRemovidos: desfeitos.size
+        };
+    }
+
     // ---------- Formatação ----------
 
     const formatadorMoeda = new Intl.NumberFormat("pt-BR", {
@@ -695,6 +848,7 @@ const Regras = (function () {
         FILTRO_SEM,
         SITUACAO_MES,
         TIPO_PERIODO,
+        MODO_IMPORTACAO,
         CATEGORIA_AJUSTE,
         arredondarCentavos,
         dataValida,
@@ -741,6 +895,12 @@ const Regras = (function () {
         ehAjuste,
         montarExportacao,
         lerMovimentacoesImportadas,
+        mesmoConteudo,
+        diferencasDeConteudo,
+        compararImportacao,
+        ajustesDesfeitos,
+        ajustesSobrepostos,
+        aplicarImportacao,
         formatarMoeda,
         formatarData,
         formatarMes,

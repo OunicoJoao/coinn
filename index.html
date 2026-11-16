@@ -95,7 +95,7 @@
                             </svg>
                             <span>
                                 Importar dados
-                                <small>Carrega um arquivo exportado pela Coinn</small>
+                                <small>Junta um arquivo da Coinn aos seus dados ou substitui</small>
                             </span>
                         </button>
                     </div>
@@ -336,6 +336,68 @@
             <div class="dialogo-botoes">
                 <button type="button" class="btn-cancelar" data-fechar>Cancelar</button>
                 <button type="submit" id="btn-confirmar-exportar">Exportar</button>
+            </div>
+        </form>
+    </dialog>
+
+    <!-- Importar: escolher o período do arquivo e como juntar com os dados atuais -->
+    <dialog id="dialogo-importar" class="dialogo" aria-labelledby="titulo-importar">
+        <form id="form-importar" class="dialogo-conteudo" novalidate>
+            <h2 id="titulo-importar">Importar dados</h2>
+            <p id="importar-arquivo" class="dialogo-texto"></p>
+
+            <div id="importar-periodo"></div>
+
+            <fieldset class="dialogo-opcoes">
+                <legend>Como importar</legend>
+                <label class="opcao-radio">
+                    <input type="radio" name="modo-importar" value="incorporar" checked>
+                    <span>
+                        Incorporar aos meus dados
+                        <small>Adiciona só o que é novo. Nada é apagado.</small>
+                    </span>
+                </label>
+                <label class="opcao-radio">
+                    <input type="radio" name="modo-importar" value="periodo">
+                    <span>
+                        Substituir só o período escolhido
+                        <small id="importar-modo-periodo-texto">Troca as suas movimentações desse período pelas do arquivo.</small>
+                    </span>
+                </label>
+                <label class="opcao-radio">
+                    <input type="radio" name="modo-importar" value="tudo">
+                    <span>
+                        Substituir todos os meus dados
+                        <small id="importar-modo-tudo-texto">Apaga tudo o que está na Coinn e fica só com o arquivo.</small>
+                    </span>
+                </label>
+            </fieldset>
+
+            <p id="importar-previa" class="dialogo-previa" aria-live="polite"></p>
+
+            <!-- Conflitos: mesma movimentação (mesmo código) com dados diferentes -->
+            <div id="importar-conflitos" class="dialogo-conflitos" hidden>
+                <p id="importar-conflitos-texto"></p>
+                <ul id="importar-conflitos-lista" class="lista-conflitos"></ul>
+                <fieldset class="dialogo-opcoes">
+                    <legend>O que fazer com elas?</legend>
+                    <label class="opcao-radio">
+                        <input type="radio" name="conflito-importar" value="manter">
+                        <span>Manter as minhas <small>As do arquivo que estão em conflito ficam de fora.</small></span>
+                    </label>
+                    <label class="opcao-radio">
+                        <input type="radio" name="conflito-importar" value="arquivo">
+                        <span>Usar as do arquivo <small>As minhas são trocadas pela versão do arquivo.</small></span>
+                    </label>
+                </fieldset>
+            </div>
+
+            <p id="importar-alerta" class="dialogo-alerta" hidden></p>
+            <p id="importar-erro" class="mensagem-erro" role="alert" hidden></p>
+
+            <div class="dialogo-botoes">
+                <button type="button" class="btn-cancelar" data-fechar>Cancelar</button>
+                <button type="submit" id="btn-confirmar-importar">Importar</button>
             </div>
         </form>
     </dialog>

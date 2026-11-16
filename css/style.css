@@ -1494,6 +1494,16 @@ button[type="submit"]:active {
     font-size: 0.86rem;
 }
 
+.dialogo-opcoes {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+
+.dialogo-opcoes legend {
+    margin-bottom: 8px;
+}
+
 /* Opções com caixinha ou bolinha e uma explicação embaixo */
 .opcao-check,
 .opcao-radio {
@@ -1551,6 +1561,29 @@ button[type="submit"]:active {
     gap: 10px;
     padding-left: 16px;
     border-left: 3px solid var(--destaque);
+}
+
+.dialogo-conflitos {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    padding: 12px 14px;
+    border: 2px solid var(--perigo-borda);
+    border-radius: 12px;
+    font-size: 0.9rem;
+}
+
+.lista-conflitos {
+    padding-left: 18px;
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    font-size: 0.85rem;
+}
+
+.lista-conflitos strong {
+    font-weight: 600;
+    color: var(--texto-forte);
 }
 
 .dialogo-botoes {
