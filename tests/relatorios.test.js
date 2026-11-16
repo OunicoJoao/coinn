@@ -81,6 +81,19 @@ describe("gerarRelatorio", () => {
         assert.equal(destaques.piorMes.mes, "2026-12");
     });
 
+    it("saídas por categoria, da maior para a menor, com subcategorias e porcentagem", () => {
+        const categorias = relatorio.categoriasSaidas;
+        assert.deepEqual(categorias.map((c) => c.categoria), ["Moradia", "Lazer", "Alimentação", ""]);
+        assert.equal(categorias[0].total, 3600);
+        assert.equal(categorias[0].percentual, 3600 / 6000);
+        assert.deepEqual(categorias[0].subcategorias, [{ nome: "Aluguel", total: 3600, quantidade: 3 }]);
+        assert.equal(categorias[3].semCategoria, true);
+    });
+
+    it("maiores saídas em ordem de valor", () => {
+        assert.deepEqual(relatorio.maioresSaidas.map((m) => m.valor), [2000.2, 1200, 1200, 1200, 300.1]);
+    });
+
     it("compara com o mesmo número de meses logo antes", () => {
         const anterior = Relatorios.gerarRelatorio(lista, { inicio: "2026-09", fim: "2026-09" }, HOJE).anterior;
         assert.deepEqual(anterior.periodo, { inicio: "2026-08", fim: "2026-08" });
@@ -119,10 +132,31 @@ describe("ajustes de saldo nos relatórios", () => {
         assert.equal(ano2025.totais.saldoFinal, 900);
         assert.equal(ano2025.contagem.ajustes, 1);
         assert.equal(ano2025.meses[11].ajustes, 900);
+        assert.deepEqual(ano2025.categoriasEntradas, []);
 
         const ano2026 = Relatorios.gerarRelatorio(comAjuste, { inicio: "2026-01", fim: "2026-12" }, HOJE);
         assert.equal(ano2026.totais.saldoInicial, 900);
         assert.equal(ano2026.totais.saldoFinal, 800);
+    });
+});
+
+describe("agruparPorCategoria", () => {
+    it("depois de 6 categorias, junta o resto em 'Outras'", () => {
+        const muitas = ["A", "B", "C", "D", "E", "F", "G", "H"].map((cat, i) => mov(TIPO.SAIDA, 100 - i, "2026-01-01", "x", cat));
+        const grupos = Relatorios.agruparPorCategoria(muitas);
+        assert.equal(grupos.length, Relatorios.MAX_CATEGORIAS);
+        assert.equal(grupos[5].categoria, "Outras (3)");
+        assert.equal(grupos[5].outras, true);
+        assert.equal(grupos[5].total, 95 + 94 + 93);
+        assert.equal(grupos[5].quantidade, 3);
+    });
+
+    it("soma em centavos (sem erro de ponto flutuante)", () => {
+        const grupos = Relatorios.agruparPorCategoria([
+            mov(TIPO.SAIDA, 0.1, "2026-01-01", "x", "A"),
+            mov(TIPO.SAIDA, 0.2, "2026-01-01", "x", "A")
+        ]);
+        assert.equal(grupos[0].total, 0.3);
     });
 });
 
@@ -132,5 +166,17 @@ describe("variacao", () => {
         assert.equal(Relatorios.variacao(50, 100), -0.5);
         assert.equal(Relatorios.variacao(10, 0), null);
         assert.equal(Relatorios.variacao(10, null), null);
+    });
+});
+
+describe("montarCSV", () => {
+    it("tabela mês a mês separada por ';', com vírgula decimal e linha de total", () => {
+        const csv = Relatorios.montarCSV(Relatorios.gerarRelatorio(lista, periodo, HOJE));
+        const linhas = csv.trim().split("\r\n");
+        assert.equal(linhas[0], "Mês;Entradas;Saídas;Resultado;Saldo no fim do mês;Movimentações;Situação");
+        assert.equal(linhas[1], "Setembro de 2026;3000,00;1500,10;1499,90;2499,90;3;Realizado");
+        assert.equal(linhas[3], "Novembro de 2026;0,00;99,70;-99,70;2700,00;1;Mês atual (previsto)");
+        assert.equal(linhas[4], "Dezembro de 2026;0,00;1200,00;-1200,00;1500,00;1;Previsto");
+        assert.equal(linhas[5], "Total;6500,00;6000,00;500,00;1500,00;9;");
     });
 });

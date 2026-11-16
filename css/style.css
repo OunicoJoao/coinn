@@ -1457,6 +1457,41 @@ button[type="submit"]:active {
     font-size: 0.95rem;
 }
 
+.relatorio-acoes {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+}
+
+/* Botão secundário: contorno, sem fundo forte */
+.btn-secundario {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    padding: 8px 14px;
+    border: 2px solid var(--borda);
+    border-radius: 10px;
+    background-color: var(--superficie);
+    color: var(--texto-forte);
+    font-family: inherit;
+    font-size: 0.9rem;
+    font-weight: 500;
+    cursor: pointer;
+    transition: all 0.2s ease;
+}
+
+.btn-secundario .icone {
+    width: 18px;
+    height: 18px;
+}
+
+.btn-secundario:hover,
+.btn-secundario:focus-visible {
+    border-color: var(--destaque);
+    outline: none;
+    box-shadow: 0 0 0 3px var(--foco-anel);
+}
+
 .relatorio-vazio {
     padding: 32px 16px;
     text-align: center;
@@ -1599,6 +1634,56 @@ button[type="submit"]:active {
 .relatorio-informacoes dt:nth-last-of-type(1),
 .relatorio-informacoes dd:last-child {
     border-bottom: none;
+}
+
+/* Maiores saídas */
+.relatorio-maiores {
+    list-style: none;
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+    gap: 8px 20px;
+    counter-reset: maior;
+}
+
+.relatorio-maior {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 12px;
+    padding: 10px 12px;
+    border-radius: 10px;
+    background-color: var(--saida-fundo);
+    counter-increment: maior;
+}
+
+.relatorio-maior-info {
+    display: flex;
+    flex-direction: column;
+    min-width: 0;
+}
+
+.relatorio-maior-nome {
+    font-weight: 500;
+    color: var(--texto-forte);
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.relatorio-maior-nome::before {
+    content: counter(maior) ". ";
+    color: var(--texto-suave);
+}
+
+.relatorio-maior small {
+    color: var(--texto-suave);
+    font-size: 0.8rem;
+}
+
+.relatorio-maior-valor {
+    color: var(--cor-saida);
+    font-weight: 600;
+    white-space: nowrap;
 }
 
 /* Tabela mês a mês */
@@ -1815,6 +1900,67 @@ button[type="submit"]:active {
 
 .grafico-dica-rotulo {
     color: var(--texto-suave);
+}
+
+/* Categorias: barras horizontais */
+.grafico-categorias {
+    list-style: none;
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+}
+
+.grafico-categorias.entrada { color: var(--cor-entrada); }
+.grafico-categorias.saida { color: var(--cor-saida); }
+
+.categoria-topo {
+    display: flex;
+    justify-content: space-between;
+    align-items: baseline;
+    gap: 12px;
+    margin-bottom: 4px;
+}
+
+.categoria-nome {
+    color: var(--texto-forte);
+    font-weight: 500;
+    font-size: 0.9rem;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.categoria-nome.sem-categoria,
+.categoria-nome.outras {
+    color: var(--texto-suave);
+    font-style: italic;
+}
+
+.categoria-valor {
+    color: var(--texto);
+    font-size: 0.85rem;
+    white-space: nowrap;
+    font-variant-numeric: tabular-nums;
+}
+
+.categoria-trilho {
+    height: 8px;
+    border-radius: 8px;
+    background-color: var(--destaque-fundo);
+    overflow: hidden;
+}
+
+.categoria-barra {
+    height: 100%;
+    border-radius: 8px;
+    background-color: currentColor;
+}
+
+.categoria-detalhe {
+    display: block;
+    margin-top: 4px;
+    color: var(--texto-suave);
+    font-size: 0.78rem;
 }
 
 /* ---------- Diálogos (exportar e importar) ---------- */
@@ -2038,6 +2184,15 @@ button[type="submit"]:active {
         text-align: left;
     }
 
+    .relatorio-acoes,
+    .relatorio-acoes .btn-secundario {
+        width: 100%;
+    }
+
+    .relatorio-acoes .btn-secundario {
+        justify-content: center;
+    }
+
     .periodo-tipos {
         align-self: stretch;
     }
@@ -2062,5 +2217,72 @@ button[type="submit"]:active {
 
     .dialogo-botoes {
         flex-direction: column;
+    }
+}
+
+/* ---------- Impressão (botão "Imprimir / PDF" dos relatórios) ---------- */
+
+@media print {
+    /* Sempre com as cores do tema claro no papel */
+    :root,
+    :root[data-tema="escuro"] {
+        --fundo-pagina: #FFF;
+        --superficie-base: #FFF;
+        --superficie: #FFF;
+        --destaque-fundo: #FFF8E6;
+        --destaque: #F2C14E;
+        --texto: #2D3436;
+        --texto-forte: #1A202C;
+        --texto-suave: #5F5747;
+        --texto-label: #4A4234;
+        --borda: #E6D9B5;
+        --borda-hover: #D9C79A;
+        --cor-entrada: #059669;
+        --cor-saida: #DC2626;
+        --saida-fundo: #FEF2F2;
+        --perigo: #991B1B;
+        --grafico-saldo: #B45309;
+        --grafico-grade: #EEE4CC;
+        --grafico-base: #D9C79A;
+        --sombra: none;
+        color-scheme: light;
+    }
+
+    body {
+        display: block;
+        padding: 0;
+        -webkit-print-color-adjust: exact;
+        print-color-adjust: exact;
+    }
+
+    .topbar,
+    .visao-barra,
+    .relatorio-acoes,
+    .relatorio-periodo,
+    .grafico-dica,
+    .aviso {
+        display: none !important;
+    }
+
+    .container {
+        width: 100%;
+        max-width: none;
+        margin: 0;
+        padding: 0;
+        border: none;
+        box-shadow: none;
+    }
+
+    .relatorio-bloco,
+    .relatorio-cartao {
+        break-inside: avoid;
+    }
+
+    .relatorio-grade {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+
+    .relatorio-cartoes {
+        grid-template-columns: repeat(4, minmax(0, 1fr));
     }
 }

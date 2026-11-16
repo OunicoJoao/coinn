@@ -3,6 +3,7 @@
  * Desenha os gráficos dos relatórios em SVG, sem biblioteca externa:
  * - barras(): um valor por mês (entradas por mês, saídas por mês)
  * - linha(): a evolução de um valor mês a mês (saldo no fim de cada mês)
+ * - categorias(): barras horizontais com o total e a porcentagem de cada categoria
  *
  * As cores vêm do CSS (classes .grafico.entrada, .saida, .evolucao), então o modo noturno
  * e a impressão funcionam sem mudar nada aqui. Os textos entram com textContent
@@ -379,10 +380,55 @@ const Graficos = (function () {
         desenhar();
     }
 
+    // ---------- Categorias (barras horizontais) ----------
+
+    // itens: [{ nome, valorTexto, percentualTexto, total, detalhe, destaque }]
+    // A maior categoria ocupa a barra inteira; as outras ficam proporcionais a ela.
+    function categorias(container, itens, opcoes) {
+        container.classList.add("grafico-categorias", opcoes.classe);
+        const maior = Math.max(0, ...itens.map((item) => item.total));
+
+        const linhas = itens.map((item) => {
+            const li = document.createElement("li");
+            li.className = "categoria-linha";
+
+            const topo = document.createElement("div");
+            topo.className = "categoria-topo";
+            const nome = document.createElement("span");
+            nome.className = "categoria-nome";
+            if (item.destaque) nome.classList.add(item.destaque);
+            nome.textContent = item.nome;
+            nome.title = item.nome;
+            const valor = document.createElement("span");
+            valor.className = "categoria-valor";
+            valor.textContent = item.percentualTexto ? `${item.valorTexto} · ${item.percentualTexto}` : item.valorTexto;
+            topo.append(nome, valor);
+
+            const trilho = document.createElement("div");
+            trilho.className = "categoria-trilho";
+            const barra = document.createElement("div");
+            barra.className = "categoria-barra";
+            barra.style.width = `${maior > 0 ? Math.max(1, (item.total / maior) * 100) : 0}%`;
+            trilho.append(barra);
+
+            li.append(topo, trilho);
+            if (item.detalhe) {
+                const detalhe = document.createElement("small");
+                detalhe.className = "categoria-detalhe";
+                detalhe.textContent = item.detalhe;
+                li.append(detalhe);
+            }
+            return li;
+        });
+
+        container.replaceChildren(...linhas);
+    }
+
     return Object.freeze({
         escalaBonita,
         barras,
         linha,
+        categorias,
         esconderDica
     });
 })();
