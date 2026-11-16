@@ -137,8 +137,16 @@ const graficoSaidasEl = document.getElementById("grafico-saidas");
 const graficoSaldoEl = document.getElementById("grafico-saldo");
 const relatorioInformacoesEl = document.getElementById("relatorio-informacoes");
 const relatorioDestaquesEl = document.getElementById("relatorio-destaques");
+const categoriasSaidasEl = document.getElementById("relatorio-categorias-saidas");
+const categoriasSaidasVazioEl = document.getElementById("relatorio-categorias-saidas-vazio");
+const categoriasEntradasEl = document.getElementById("relatorio-categorias-entradas");
+const categoriasEntradasVazioEl = document.getElementById("relatorio-categorias-entradas-vazio");
+const relatorioMaioresEl = document.getElementById("relatorio-maiores");
+const relatorioMaioresVazioEl = document.getElementById("relatorio-maiores-vazio");
 const tabelaCorpoEl = document.getElementById("relatorio-tabela-corpo");
 const tabelaRodapeEl = document.getElementById("relatorio-tabela-rodape");
+const btnRelatorioCsvEl = document.getElementById("btn-relatorio-csv");
+const btnRelatorioImprimirEl = document.getElementById("btn-relatorio-imprimir");
 
 // Diálogo de exportar
 const dialogoExportarEl = document.getElementById("dialogo-exportar");
@@ -197,6 +205,9 @@ let temaAtual = Armazenamento.carregarTema();
 
 // Guarda o timer do aviso para poder reiniciá-lo
 let timerAviso = null;
+
+// Último relatório desenhado (usado para baixar o CSV)
+let relatorioAtual = null;
 
 // Arquivo aberto no diálogo de importar: { nome, lista, ignoradas, periodoDoArquivo }
 let importacao = null;
@@ -273,6 +284,10 @@ const seletorImportar = criarSeletorPeriodo(importarPeriodoEl, "importar",
     [TIPO_PERIODO.TUDO, TIPO_PERIODO.MES, TIPO_PERIODO.MESES, TIPO_PERIODO.ANO],
     atualizarPreviaImportar);
 seletorRelatorio.definirEscolha({ tipo: TIPO_PERIODO.ANO, ano: hoje().slice(0, 4) });
+
+// Relatórios
+btnRelatorioCsvEl.addEventListener("click", baixarRelatorioCSV);
+btnRelatorioImprimirEl.addEventListener("click", () => window.print());
 
 // Diálogos de exportar e importar
 exportarRemoverEl.addEventListener("change", atualizarPreviaExportar);
@@ -1270,7 +1285,10 @@ function atualizarRelatorio() {
     });
 
     const semDados = movimentacoes.length === 0;
+    btnRelatorioCsvEl.hidden = semDados;
+    btnRelatorioImprimirEl.hidden = semDados;
     if (semDados) {
+        relatorioAtual = null;
         relatorioSubtituloEl.textContent = "";
         seletorRelatorio.mostrarErro("");
         mostrarRelatorioVazio("Registre movimentações para ver os relatórios.");
@@ -1282,6 +1300,7 @@ function atualizarRelatorio() {
     if (periodo.erro) return; // mantém o relatório anterior até a escolha ficar válida
 
     const relatorio = Relatorios.gerarRelatorio(movimentacoes, periodo, hoje());
+    relatorioAtual = relatorio;
 
     const partes = [relatorio.descricao, textoQuantidade(relatorio.contagem.movimentacoes)];
     if (relatorio.situacao !== SITUACAO_MES.PASSADO) partes.push("inclui valores previstos");
@@ -1289,6 +1308,8 @@ function atualizarRelatorio() {
     relatorioSubtituloEl.replaceChildren(criarLinhaDeTexto(partes));
 
     if (relatorio.vazio) {
+        btnRelatorioCsvEl.hidden = true;
+        btnRelatorioImprimirEl.hidden = true;
         mostrarRelatorioVazio(`Nenhuma movimentação em ${relatorio.descricao}. Escolha outro período.`);
         return;
     }
@@ -1300,6 +1321,9 @@ function atualizarRelatorio() {
     desenharGraficosMensais(relatorio);
     desenharInformacoes(relatorio);
     desenharDestaques(relatorio);
+    desenharCategorias(relatorio.categoriasSaidas, categoriasSaidasEl, categoriasSaidasVazioEl, "saida");
+    desenharCategorias(relatorio.categoriasEntradas, categoriasEntradasEl, categoriasEntradasVazioEl, "entrada");
+    desenharMaioresSaidas(relatorio);
     desenharTabela(relatorio);
 }
 
@@ -1509,6 +1533,57 @@ function desenharDestaques(relatorio) {
     ]);
 }
 
+function desenharCategorias(categorias, lista, vazio, classe) {
+    vazio.hidden = categorias.length > 0;
+    lista.hidden = categorias.length === 0;
+    Graficos.categorias(lista, categorias.map((item) => {
+        // Subcategorias mais usadas: "Mercado R$ 900,00 · Restaurante R$ 300,00"
+        const subcategorias = item.subcategorias
+            .filter((sub) => sub.nome)
+            .slice(0, 3)
+            .map((sub) => `${sub.nome} ${exibirValor(sub.total)}`)
+            .join(" · ");
+        let destaque = "";
+        if (item.semCategoria) destaque = "sem-categoria";
+        else if (item.outras) destaque = "outras";
+        return {
+            nome: item.semCategoria ? "Sem categoria" : item.categoria,
+            destaque,
+            total: item.total,
+            valorTexto: exibirValor(item.total),
+            percentualTexto: item.percentual === null ? "" : porcentagem(item.percentual),
+            detalhe: subcategorias
+        };
+    }), { classe });
+}
+
+function desenharMaioresSaidas(relatorio) {
+    const itens = relatorio.maioresSaidas.map((mov) => {
+        const li = document.createElement("li");
+        li.className = "relatorio-maior";
+
+        const info = document.createElement("span");
+        info.className = "relatorio-maior-info";
+        const nome = document.createElement("span");
+        nome.className = "relatorio-maior-nome";
+        nome.textContent = mov.descricao;
+        const detalhe = document.createElement("small");
+        const rotulo = Regras.rotuloCategoria(mov);
+        detalhe.textContent = rotulo ? `${Regras.formatarData(mov.data)} · ${rotulo}` : Regras.formatarData(mov.data);
+        info.append(nome, detalhe);
+
+        const valor = document.createElement("span");
+        valor.className = "relatorio-maior-valor";
+        valor.textContent = `- ${exibirValor(mov.valor)}`;
+
+        li.append(info, valor);
+        return li;
+    });
+    relatorioMaioresEl.replaceChildren(...itens);
+    relatorioMaioresEl.hidden = itens.length === 0;
+    relatorioMaioresVazioEl.hidden = itens.length > 0;
+}
+
 function celula(texto, classe) {
     const td = document.createElement("td");
     td.textContent = texto;
@@ -1559,6 +1634,17 @@ function desenharTabela(relatorio) {
         celula(String(contagem.movimentacoes))
     );
     tabelaRodapeEl.replaceChildren(total);
+}
+
+// Planilha com a tabela "Mês a mês" (o caractere invisível BOM, "\uFEFF", faz o Excel reconhecer os acentos)
+function baixarRelatorioCSV() {
+    if (!relatorioAtual || relatorioAtual.vazio) return;
+    baixarArquivo(
+        `\uFEFF${Relatorios.montarCSV(relatorioAtual)}`,
+        `coinn-relatorio-${Regras.nomeArquivoPeriodo(relatorioAtual.periodo)}.csv`,
+        "text/csv;charset=utf-8"
+    );
+    mostrarAviso("Planilha do relatório baixada.");
 }
 
 // ---------- #21 Exportar dados (por período, com opção de remover) ----------

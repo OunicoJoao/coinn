@@ -1,13 +1,14 @@
 /*
  * relatorios.js
  * Cálculos dos relatórios: totais e médias do período, valores de cada mês (para os
- * gráficos de entradas, saídas e saldo), destaques e comparação com o período anterior.
+ * gráficos de entradas, saídas e saldo), destaques, gastos por categoria, comparação
+ * com o período anterior e a tabela mês a mês em CSV.
  *
  * Igual ao regras.js: só funções puras (nada de tela nem de localStorage), testadas
  * em tests/relatorios.test.js. Usa as regras do regras.js (somas em centavos, meses...).
  *
  * Ajustes de saldo (criados ao exportar e remover um período) não são entradas nem
- * saídas de verdade: ficam fora dos totais e das médias, mas entram
+ * saídas de verdade: ficam fora dos totais, das médias e das categorias, mas entram
  * no saldo, que continua igual ao do resto do app.
  */
 
@@ -19,6 +20,12 @@ const Relatorios = (function () {
     // No navegador, Regras é uma variável global; no Node (testes), vem do require()
     const R = typeof Regras !== "undefined" ? Regras : require("./regras.js");
     const { TIPO, SITUACAO_MES } = R;
+
+    // Quantas categorias aparecem antes de juntar o resto em "Outras"
+    const MAX_CATEGORIAS = 6;
+
+    // Quantas movimentações aparecem em "Maiores saídas"
+    const MAX_MAIORES = 5;
 
     // ---------- Ajudantes ----------
 
@@ -76,6 +83,61 @@ const Relatorios = (function () {
                 situacao: R.situacaoDoMes(mes, hoje)
             };
         });
+    }
+
+    // ---------- Categorias ----------
+
+    // Total por categoria (e subcategoria), do maior para o menor.
+    // Depois das primeiras MAX_CATEGORIAS, o resto vira uma linha "Outras".
+    // [{ categoria, semCategoria, outras, total, percentual, quantidade, subcategorias: [{ nome, total, quantidade }] }]
+    function agruparPorCategoria(lista) {
+        const total = R.calcularResumo(lista);
+        const soma = total.entradas + total.saidas;
+        const grupos = new Map();
+
+        lista.forEach((mov) => {
+            const grupo = grupos.get(mov.categoria) || { centavos: 0, quantidade: 0, subcategorias: new Map() };
+            const centavos = Math.round(mov.valor * 100);
+            grupo.centavos += centavos;
+            grupo.quantidade += 1;
+            const sub = grupo.subcategorias.get(mov.subcategoria) || { centavos: 0, quantidade: 0 };
+            sub.centavos += centavos;
+            sub.quantidade += 1;
+            grupo.subcategorias.set(mov.subcategoria, sub);
+            grupos.set(mov.categoria, grupo);
+        });
+
+        const itens = [...grupos.entries()]
+            .map(([categoria, grupo]) => ({
+                categoria,
+                semCategoria: !categoria,
+                outras: false,
+                total: grupo.centavos / 100,
+                percentual: proporcao(grupo.centavos / 100, soma),
+                quantidade: grupo.quantidade,
+                subcategorias: [...grupo.subcategorias.entries()]
+                    .map(([nome, sub]) => ({ nome, total: sub.centavos / 100, quantidade: sub.quantidade }))
+                    .sort((a, b) => b.total - a.total || a.nome.localeCompare(b.nome, "pt-BR"))
+            }))
+            .sort((a, b) => b.total - a.total || a.categoria.localeCompare(b.categoria, "pt-BR"));
+
+        if (itens.length <= MAX_CATEGORIAS) return itens;
+
+        // Junta o resto em "Outras" (somando em centavos)
+        const resto = itens.slice(MAX_CATEGORIAS - 1);
+        const centavosResto = resto.reduce((acc, item) => acc + Math.round(item.total * 100), 0);
+        return [
+            ...itens.slice(0, MAX_CATEGORIAS - 1),
+            {
+                categoria: `Outras (${resto.length})`,
+                semCategoria: false,
+                outras: true,
+                total: centavosResto / 100,
+                percentual: proporcao(centavosResto / 100, soma),
+                quantidade: resto.reduce((acc, item) => acc + item.quantidade, 0),
+                subcategorias: []
+            }
+        ];
     }
 
     // ---------- Comparação com o período anterior ----------
@@ -158,6 +220,11 @@ const Relatorios = (function () {
                 melhorMes: mesExtremo(meses, "resultado", true),
                 piorMes: mesExtremo(meses, "resultado", false)
             },
+            categoriasSaidas: agruparPorCategoria(saidasLista),
+            categoriasEntradas: agruparPorCategoria(entradasLista),
+            maioresSaidas: [...saidasLista]
+                .sort((a, b) => b.valor - a.valor || (a.data < b.data ? -1 : 1))
+                .slice(0, MAX_MAIORES),
             anterior: anterior && {
                 ...anterior,
                 descricao: R.descreverPeriodo(anterior.periodo),
@@ -167,11 +234,57 @@ const Relatorios = (function () {
         };
     }
 
+    // ---------- Tabela mês a mês em CSV ----------
+
+    // Número no formato brasileiro, sem "R$" (planilhas reconhecem como número): 1234,5 -> "1234,50"
+    function numeroCSV(numero) {
+        return numero.toFixed(2).replace(".", ",");
+    }
+
+    function textoCSV(texto) {
+        return /[;"\n]/.test(texto) ? `"${texto.replace(/"/g, "\"\"")}"` : texto;
+    }
+
+    // CSV separado por ";" (o Excel em português abre direto, com as colunas certas)
+    function montarCSV(relatorio) {
+        const situacao = {
+            [SITUACAO_MES.PASSADO]: "Realizado",
+            [SITUACAO_MES.ATUAL]: "Mês atual (previsto)",
+            [SITUACAO_MES.FUTURO]: "Previsto"
+        };
+        const linhas = [
+            ["Mês", "Entradas", "Saídas", "Resultado", "Saldo no fim do mês", "Movimentações", "Situação"],
+            ...relatorio.meses.map((mes) => [
+                R.formatarMes(mes.mes),
+                numeroCSV(mes.entradas),
+                numeroCSV(mes.saidas),
+                numeroCSV(mes.resultado),
+                numeroCSV(mes.saldoFinal),
+                String(mes.quantidade),
+                situacao[mes.situacao]
+            ]),
+            [
+                "Total",
+                numeroCSV(relatorio.totais.entradas),
+                numeroCSV(relatorio.totais.saidas),
+                numeroCSV(relatorio.totais.resultado),
+                numeroCSV(relatorio.totais.saldoFinal),
+                String(relatorio.contagem.movimentacoes),
+                ""
+            ]
+        ];
+        return linhas.map((linha) => linha.map(textoCSV).join(";")).join("\r\n") + "\r\n";
+    }
+
     return Object.freeze({
+        MAX_CATEGORIAS,
+        MAX_MAIORES,
         calcularMeses,
+        agruparPorCategoria,
         compararComAnterior,
         variacao,
-        gerarRelatorio
+        gerarRelatorio,
+        montarCSV
     });
 })();
 

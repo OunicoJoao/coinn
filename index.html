@@ -161,6 +161,20 @@
                     <h2 id="titulo-relatorio">Relatório</h2>
                     <p id="relatorio-subtitulo" class="relatorio-subtitulo"></p>
                 </div>
+                <div class="relatorio-acoes">
+                    <button type="button" id="btn-relatorio-csv" class="btn-secundario">
+                        <svg class="icone" viewBox="0 0 24 24" aria-hidden="true">
+                            <path d="M12 3v12"/><path d="M7 10l5 5 5-5"/><path d="M4 21h16"/>
+                        </svg>
+                        Baixar planilha (CSV)
+                    </button>
+                    <button type="button" id="btn-relatorio-imprimir" class="btn-secundario">
+                        <svg class="icone" viewBox="0 0 24 24" aria-hidden="true">
+                            <path d="M6 9V3h12v6"/><rect x="3" y="9" width="18" height="8" rx="2"/><path d="M7 14h10v7H7z"/>
+                        </svg>
+                        Imprimir / PDF
+                    </button>
+                </div>
             </div>
 
             <!-- Escolha do período (mês, vários meses, ano, últimos 12 meses ou tudo), montada pelo app.js -->
@@ -204,6 +218,21 @@
                     <section class="relatorio-bloco" aria-labelledby="titulo-destaques">
                         <h3 id="titulo-destaques">Destaques</h3>
                         <dl id="relatorio-destaques" class="relatorio-informacoes"></dl>
+                    </section>
+                    <section class="relatorio-bloco" aria-labelledby="titulo-cat-saidas">
+                        <h3 id="titulo-cat-saidas">Saídas por categoria</h3>
+                        <ol id="relatorio-categorias-saidas"></ol>
+                        <p id="relatorio-categorias-saidas-vazio" class="relatorio-nota" hidden>Nenhuma saída no período.</p>
+                    </section>
+                    <section class="relatorio-bloco" aria-labelledby="titulo-cat-entradas">
+                        <h3 id="titulo-cat-entradas">Entradas por categoria</h3>
+                        <ol id="relatorio-categorias-entradas"></ol>
+                        <p id="relatorio-categorias-entradas-vazio" class="relatorio-nota" hidden>Nenhuma entrada no período.</p>
+                    </section>
+                    <section class="relatorio-bloco largo" aria-labelledby="titulo-maiores">
+                        <h3 id="titulo-maiores">Maiores saídas</h3>
+                        <ol id="relatorio-maiores" class="relatorio-maiores"></ol>
+                        <p id="relatorio-maiores-vazio" class="relatorio-nota" hidden>Nenhuma saída no período.</p>
                     </section>
                 </div>
 
