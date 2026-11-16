@@ -16,7 +16,7 @@
  * As funções que dependem do dia recebem "hoje" como parâmetro ("AAAA-MM-DD"),
  * para continuarem puras e testáveis.
  *
- * Períodos de meses: exportação e importação trabalham com um intervalo
+ * Períodos de meses: relatórios, exportação e importação trabalham com um intervalo
  * de meses { inicio, fim } ("AAAA-MM", os dois incluídos): um mês, vários meses ou um ano.
  *
  * Modelo de dados de uma movimentação:
@@ -73,12 +73,13 @@ const Regras = (function () {
     // v3: com o período exportado, um resumo e o campo "ajuste" (arquivos v1 e v2 continuam aceitos)
     const VERSAO_EXPORTACAO = 3;
 
-    // Como escolher o período (exportar e importar)
+    // Como escolher o período (relatórios, exportar e importar)
     const TIPO_PERIODO = Object.freeze({
         MES: "mes",
         MESES: "meses",
         ANO: "ano",
-        TUDO: "tudo"
+        TUDO: "tudo",
+        ULTIMOS_12: "ultimos12" // só nos relatórios
     });
 
     // Como juntar os dados de um arquivo importado com os dados atuais
@@ -442,7 +443,7 @@ const Regras = (function () {
         return [...new Set(lista.map((mov) => mov.data.slice(0, 7)))].sort().reverse();
     }
 
-    // ---------- Períodos de meses (exportar e importar) ----------
+    // ---------- Períodos de meses (relatórios, exportar e importar) ----------
 
     // "2026-11" é um mês válido; "2026-13" e "2026-1" não
     function anoMesValido(anoMes) {
@@ -475,7 +476,8 @@ const Regras = (function () {
     //   { tipo: "meses", inicio, fim }     vários meses seguidos
     //   { tipo: "ano", ano }               janeiro a dezembro do ano
     //   { tipo: "tudo" }                   do primeiro ao último mês da lista
-    function resolverPeriodo(escolha, lista) {
+    //   { tipo: "ultimos12" }              os 12 meses que terminam no mês de hoje
+    function resolverPeriodo(escolha, lista, hoje) {
         switch (escolha?.tipo) {
         case TIPO_PERIODO.MES:
             if (!anoMesValido(escolha.mes)) return { erro: "Escolha o mês." };
@@ -493,6 +495,10 @@ const Regras = (function () {
             return { inicio: `${escolha.ano}-01`, fim: `${escolha.ano}-12` };
         case TIPO_PERIODO.TUDO:
             return limitesDosMeses(lista) || { erro: "Não há movimentações." };
+        case TIPO_PERIODO.ULTIMOS_12: {
+            const mesDeHoje = hoje.slice(0, 7);
+            return { inicio: deslocarMes(mesDeHoje, -11), fim: mesDeHoje };
+        }
         default:
             return { erro: "Escolha um período." };
         }
@@ -535,6 +541,12 @@ const Regras = (function () {
         if (periodo.inicio === periodo.fim) return periodo.inicio;
         if (ehAnoInteiro(periodo)) return periodo.inicio.slice(0, 4);
         return `${periodo.inicio}_a_${periodo.fim}`;
+    }
+
+    // Rótulo do mês no eixo dos gráficos: "Mar" ou, com o ano, "Mar/26"
+    function rotuloCurtoMes(anoMes, comAno = false) {
+        const nome = NOMES_MESES[Number(anoMes.slice(5)) - 1].slice(0, 3);
+        return comAno ? `${nome}/${anoMes.slice(2, 4)}` : nome;
     }
 
     // ---------- Exportar e remover um período ----------
@@ -889,6 +901,7 @@ const Regras = (function () {
         descreverPeriodo,
         descreverPeriodoCurto,
         nomeArquivoPeriodo,
+        rotuloCurtoMes,
         validarRemocaoDoPeriodo,
         removerPeriodo,
         criarAjusteDeSaldo,
