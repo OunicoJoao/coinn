@@ -528,12 +528,13 @@ describe("períodos de meses (relatórios, exportar e importar)", () => {
         mov({ id: 3, data: "2026-02-28" })
     ];
 
-    it("resolve mês, vários meses, ano e tudo", () => {
+    it("resolve mês, vários meses, ano, tudo e últimos 12 meses", () => {
         const hoje = "2026-11-10";
         assert.deepEqual(Regras.resolverPeriodo({ tipo: "mes", mes: "2026-02" }, lista, hoje), { inicio: "2026-02", fim: "2026-02" });
         assert.deepEqual(Regras.resolverPeriodo({ tipo: "meses", inicio: "2025-12", fim: "2026-03" }, lista, hoje), { inicio: "2025-12", fim: "2026-03" });
         assert.deepEqual(Regras.resolverPeriodo({ tipo: "ano", ano: "2025" }, lista, hoje), { inicio: "2025-01", fim: "2025-12" });
         assert.deepEqual(Regras.resolverPeriodo({ tipo: "tudo" }, lista, hoje), { inicio: "2025-11", fim: "2026-02" });
+        assert.deepEqual(Regras.resolverPeriodo({ tipo: "ultimos12" }, lista, hoje), { inicio: "2025-12", fim: "2026-11" });
     });
 
     it("recusa escolhas inválidas", () => {
@@ -571,6 +572,11 @@ describe("períodos de meses (relatórios, exportar e importar)", () => {
             assert.equal(Regras.descreverPeriodoCurto(periodo), curto);
             assert.equal(Regras.nomeArquivoPeriodo(periodo), arquivo);
         });
+    });
+
+    it("rótulo curto do mês para os gráficos", () => {
+        assert.equal(Regras.rotuloCurtoMes("2026-03"), "Mar");
+        assert.equal(Regras.rotuloCurtoMes("2026-03", true), "Mar/26");
     });
 });
 

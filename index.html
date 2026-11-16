@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <!--
   index.html
-  Página principal: saldo, formulário de lançamento e histórico de movimentações.
+  Página principal: saldo, formulário de lançamento, histórico de movimentações e relatórios.
 -->
 <html lang="pt-BR">
 <head>
@@ -13,12 +13,15 @@
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="css/style.css">
-    <!-- A ordem importa: regras.js e storage.js precisam vir antes de app.js, que usa os dois.
+    <!-- A ordem importa: regras.js e storage.js precisam vir antes de app.js, que usa os dois;
+         relatorios.js usa o regras.js; graficos.js desenha os gráficos dos relatórios.
          storage.js carrega sem "defer" para o tema ser aplicado antes de a página aparecer
          (senão a página piscaria no tema claro antes de ficar noturna). -->
     <script src="js/storage.js"></script>
     <script>document.documentElement.dataset.tema = Armazenamento.carregarTema();</script>
     <script src="js/regras.js" defer></script>
+    <script src="js/relatorios.js" defer></script>
+    <script src="js/graficos.js" defer></script>
     <script src="js/app.js" defer></script>
 </head>
 <body>
@@ -110,11 +113,12 @@
 
     <main class="container">
 
-        <!-- Visão: Geral (tudo) ou Mensal (um mês por vez) -->
+        <!-- Visão: Geral (tudo), Mensal (um mês por vez) ou Relatórios (gráficos de um período) -->
         <div class="visao-barra">
             <div class="visao-abas" role="group" aria-label="Visão do saldo">
                 <button type="button" class="visao-aba" data-visao="geral" aria-pressed="true">Geral</button>
                 <button type="button" class="visao-aba" data-visao="mensal" aria-pressed="false">Mensal</button>
+                <button type="button" class="visao-aba" data-visao="relatorios" aria-pressed="false">Relatórios</button>
             </div>
 
             <!-- Só aparece na visão mensal -->
@@ -131,7 +135,7 @@
         </div>
 
         <!-- #18 Consultar saldo -->
-        <section class="saldo-container" aria-label="Resumo">
+        <section id="painel-saldo" class="saldo-container" aria-label="Resumo">
             <h2 id="titulo-saldo">Seu saldo</h2>
             <!--&nbsp; faz com que não quebre a linha (descobri isso e ajuda muito kkk)-->
             <p id="saldo" class="saldo">R$&nbsp;0,00</p>
@@ -150,7 +154,83 @@
             </div>
         </section>
 
-        <div class="conteudo">
+        <!-- Relatórios: só aparece na aba "Relatórios" (no lugar do saldo, do histórico e do formulário) -->
+        <section id="relatorio" class="relatorio" aria-labelledby="titulo-relatorio" hidden>
+            <div class="relatorio-cabecalho">
+                <div>
+                    <h2 id="titulo-relatorio">Relatório</h2>
+                    <p id="relatorio-subtitulo" class="relatorio-subtitulo"></p>
+                </div>
+            </div>
+
+            <!-- Escolha do período (mês, vários meses, ano, últimos 12 meses ou tudo), montada pelo app.js -->
+            <div id="relatorio-periodo" class="relatorio-periodo"></div>
+
+            <p id="relatorio-vazio" class="relatorio-vazio" hidden></p>
+
+            <div id="relatorio-conteudo">
+                <!-- Números principais do período -->
+                <div id="relatorio-cartoes" class="relatorio-cartoes"></div>
+
+                <div class="relatorio-grade">
+                    <figure class="relatorio-bloco">
+                        <figcaption>
+                            <h3>Entradas por mês</h3>
+                            <p class="relatorio-nota">Barras hachuradas: meses que ainda não terminaram (previsto)</p>
+                        </figcaption>
+                        <div id="grafico-entradas"></div>
+                    </figure>
+                    <figure class="relatorio-bloco">
+                        <figcaption>
+                            <h3>Saídas por mês</h3>
+                            <p class="relatorio-nota">Barras hachuradas: meses que ainda não terminaram (previsto)</p>
+                        </figcaption>
+                        <div id="grafico-saidas"></div>
+                    </figure>
+                    <figure class="relatorio-bloco largo">
+                        <figcaption>
+                            <h3>Saldo no fim de cada mês</h3>
+                            <p class="relatorio-nota">Linha tracejada: saldo previsto, contando as movimentações futuras</p>
+                        </figcaption>
+                        <div id="grafico-saldo"></div>
+                    </figure>
+                </div>
+
+                <div class="relatorio-grade">
+                    <section class="relatorio-bloco" aria-labelledby="titulo-informacoes">
+                        <h3 id="titulo-informacoes">Informações gerais</h3>
+                        <dl id="relatorio-informacoes" class="relatorio-informacoes"></dl>
+                    </section>
+                    <section class="relatorio-bloco" aria-labelledby="titulo-destaques">
+                        <h3 id="titulo-destaques">Destaques</h3>
+                        <dl id="relatorio-destaques" class="relatorio-informacoes"></dl>
+                    </section>
+                </div>
+
+                <!-- Os mesmos números dos gráficos, em tabela -->
+                <section class="relatorio-bloco" aria-labelledby="titulo-mes-a-mes">
+                    <h3 id="titulo-mes-a-mes">Mês a mês</h3>
+                    <div class="tabela-rolagem">
+                        <table class="relatorio-tabela">
+                            <thead>
+                                <tr>
+                                    <th scope="col">Mês</th>
+                                    <th scope="col">Entradas</th>
+                                    <th scope="col">Saídas</th>
+                                    <th scope="col">Resultado</th>
+                                    <th scope="col">Saldo no fim</th>
+                                    <th scope="col">Mov.</th>
+                                </tr>
+                            </thead>
+                            <tbody id="relatorio-tabela-corpo"></tbody>
+                            <tfoot id="relatorio-tabela-rodape"></tfoot>
+                        </table>
+                    </div>
+                </section>
+            </div>
+        </section>
+
+        <div id="painel-principal" class="conteudo">
 
             <!-- #19 Ver histórico -->
             <section class="historico-container">

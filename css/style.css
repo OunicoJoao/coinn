@@ -60,7 +60,11 @@
     --sombra-item-hover: 0 4px 12px rgba(120, 90, 20, 0.12);
     --sombra-flutuante: 0 10px 28px rgba(0, 0, 0, 0.18); /* menu, aviso, barra do topo */
 
-    /* Diálogos (exportar e importar) */
+    /* Relatórios: gráficos e diálogos */
+    --grafico-saldo: #B45309;             /* linha do saldo (laranja escuro: contraste com o fundo branco) */
+    --grafico-grade: #F3EAD3;             /* linhas de grade, bem discretas */
+    --grafico-base: #D9C79A;              /* linha do zero */
+    --grafico-eixo: var(--texto-suave);
     --dialogo-fundo-tela: rgba(26, 32, 44, 0.45);
 
     color-scheme: light; /* calendário, selects e barras de rolagem nativas no tema claro */
@@ -120,6 +124,10 @@
     --sombra-item-hover: 0 4px 12px rgba(0, 0, 0, 0.4);
     --sombra-flutuante: 0 10px 28px rgba(0, 0, 0, 0.5);
 
+    --grafico-saldo: var(--roxo-claro);
+    --grafico-grade: #2A2433;
+    --grafico-base: #4A3F58;
+    --grafico-eixo: var(--texto-suave);
     --dialogo-fundo-tela: rgba(0, 0, 0, 0.6);
 
     color-scheme: dark; /* calendário, selects e barras de rolagem nativas no tema noturno */
@@ -1351,7 +1359,7 @@ button[type="submit"]:active {
 
 }
 
-/* ---------- Seletor de período (exportar e importar) ---------- */
+/* ---------- Seletor de período (relatórios, exportar e importar) ---------- */
 
 .seletor-periodo {
     display: flex;
@@ -1422,6 +1430,391 @@ button[type="submit"]:active {
 .periodo-campo select {
     padding: 8px 12px;
     font-size: 0.95rem;
+}
+
+/* ---------- Relatórios ---------- */
+
+.relatorio {
+    display: flex;
+    flex-direction: column;
+    gap: 20px;
+}
+
+.relatorio-cabecalho {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    flex-wrap: wrap;
+    gap: 12px;
+}
+
+.relatorio-cabecalho h2 {
+    margin-bottom: 2px;
+}
+
+.relatorio-subtitulo {
+    color: var(--texto-suave);
+    font-size: 0.95rem;
+}
+
+.relatorio-vazio {
+    padding: 32px 16px;
+    text-align: center;
+    color: var(--texto-suave);
+    background-color: var(--destaque-fundo);
+    border-radius: 16px;
+}
+
+#relatorio-conteudo {
+    display: flex;
+    flex-direction: column;
+    gap: 20px;
+}
+
+/* Cartões do topo: entradas, saídas, resultado e saldo */
+.relatorio-cartoes {
+    display: grid;
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    gap: 16px;
+}
+
+.relatorio-cartao {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    padding: 18px 20px;
+    background-color: var(--superficie);
+    border: 1px solid var(--borda);
+    border-radius: 16px;
+    box-shadow: var(--sombra);
+    border-top: 4px solid var(--borda-hover);
+}
+
+.relatorio-cartao.entrada { border-top-color: var(--cor-entrada); }
+.relatorio-cartao.saida { border-top-color: var(--cor-saida); }
+.relatorio-cartao.resultado { border-top-color: var(--destaque); }
+.relatorio-cartao.negativo { border-top-color: var(--perigo); }
+.relatorio-cartao.saldo-final { border-top-color: var(--grafico-saldo); }
+
+.relatorio-cartao-rotulo {
+    font-size: 0.9rem;
+    color: var(--texto-label);
+    font-weight: 500;
+}
+
+.relatorio-cartao-valor {
+    font-size: 1.6rem;
+    font-weight: 600;
+    color: var(--texto-forte);
+    overflow-wrap: anywhere;
+}
+
+.relatorio-cartao.negativo .relatorio-cartao-valor {
+    color: var(--perigo);
+}
+
+.relatorio-cartao-detalhe {
+    font-size: 0.82rem;
+    color: var(--texto-suave);
+}
+
+/* Variação em relação ao período anterior: verde quando é bom, vermelho quando é ruim */
+.relatorio-cartao-detalhe.bom {
+    color: var(--cor-entrada);
+    font-weight: 500;
+}
+
+.relatorio-cartao-detalhe.ruim {
+    color: var(--cor-saida);
+    font-weight: 500;
+}
+
+.relatorio-grade {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 20px;
+}
+
+.relatorio-bloco {
+    min-width: 0;
+    margin: 0;
+    padding: 20px;
+    background-color: var(--superficie);
+    border: 1px solid var(--borda);
+    border-radius: 16px;
+    box-shadow: var(--sombra);
+}
+
+.relatorio-bloco.largo {
+    grid-column: 1 / -1;
+}
+
+.relatorio-bloco h3 {
+    font-size: 1.05rem;
+    font-weight: 600;
+    color: var(--texto-forte);
+    margin-bottom: 2px;
+}
+
+.relatorio-bloco figcaption,
+.relatorio-bloco > h3 {
+    margin-bottom: 12px;
+}
+
+.relatorio-nota {
+    font-size: 0.8rem;
+    color: var(--texto-suave);
+}
+
+.grafico-vazio {
+    padding: 40px 0;
+    text-align: center;
+}
+
+/* Informações gerais e destaques: rótulo à esquerda, valor à direita */
+.relatorio-informacoes {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto;
+    gap: 0 16px;
+}
+
+.relatorio-informacoes dt,
+.relatorio-informacoes dd {
+    padding: 8px 0;
+    border-bottom: 1px solid var(--borda);
+    font-size: 0.9rem;
+}
+
+.relatorio-informacoes dt {
+    color: var(--texto-suave);
+}
+
+.relatorio-informacoes dd {
+    color: var(--texto-forte);
+    font-weight: 500;
+    text-align: right;
+    font-variant-numeric: tabular-nums;
+}
+
+.relatorio-informacoes dt:nth-last-of-type(1),
+.relatorio-informacoes dd:last-child {
+    border-bottom: none;
+}
+
+/* Tabela mês a mês */
+.tabela-rolagem {
+    overflow-x: auto;
+}
+
+.relatorio-tabela {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 0.9rem;
+    font-variant-numeric: tabular-nums;
+}
+
+.relatorio-tabela th,
+.relatorio-tabela td {
+    padding: 8px 10px;
+    text-align: right;
+    white-space: nowrap;
+    border-bottom: 1px solid var(--borda);
+}
+
+.relatorio-tabela th:first-child {
+    text-align: left;
+}
+
+.relatorio-tabela thead th {
+    color: var(--texto-suave);
+    font-weight: 500;
+    font-size: 0.82rem;
+}
+
+.relatorio-tabela tbody th {
+    font-weight: 500;
+    color: var(--texto-forte);
+}
+
+.relatorio-tabela tfoot th,
+.relatorio-tabela tfoot td {
+    font-weight: 600;
+    color: var(--texto-forte);
+    border-bottom: none;
+    border-top: 2px solid var(--borda-hover);
+}
+
+.relatorio-tabela tr.previsto td,
+.relatorio-tabela tr.previsto th {
+    font-style: italic;
+}
+
+.relatorio-tabela .valor-entrada { color: var(--cor-entrada); }
+.relatorio-tabela .valor-saida { color: var(--cor-saida); }
+.relatorio-tabela .valor-negativo { color: var(--perigo); }
+
+/* ---------- Gráficos (graficos.js) ---------- */
+
+/* A cor de cada gráfico vem daqui: as barras e a linha usam currentColor */
+.grafico {
+    position: relative;
+    width: 100%;
+    min-height: 220px;
+}
+
+.grafico.entrada { color: var(--cor-entrada); }
+.grafico.saida { color: var(--cor-saida); }
+.grafico.evolucao { color: var(--grafico-saldo); }
+
+.grafico svg {
+    display: block;
+    overflow: visible;
+}
+
+.grafico-grade {
+    stroke: var(--grafico-grade);
+    stroke-width: 1;
+}
+
+.grafico-base {
+    stroke: var(--grafico-base);
+    stroke-width: 1;
+}
+
+.grafico-eixo {
+    fill: var(--grafico-eixo);
+    font-size: 11px;
+    font-family: inherit;
+    font-variant-numeric: tabular-nums;
+}
+
+.grafico-rotulo {
+    fill: var(--texto-forte);
+    font-size: 11px;
+    font-weight: 600;
+    font-family: inherit;
+}
+
+.grafico-barra {
+    fill: currentColor;
+    transition: opacity 0.15s ease;
+}
+
+.grafico-barra.ativa {
+    opacity: 0.75;
+}
+
+/* Hachura dos meses previstos: listras da cor do gráfico sobre um fundo claro */
+.grafico-hachura-fundo {
+    fill: currentColor;
+    fill-opacity: 0.18;
+}
+
+.grafico-hachura-linha {
+    stroke: currentColor;
+    stroke-width: 3;
+}
+
+.grafico-area {
+    fill: currentColor;
+    fill-opacity: 0.1;
+}
+
+.grafico-linha {
+    fill: none;
+    stroke: currentColor;
+    stroke-width: 2;
+    stroke-linejoin: round;
+    stroke-linecap: round;
+}
+
+.grafico-linha.previsto {
+    stroke-dasharray: 5 5;
+}
+
+.grafico-ponto {
+    fill: currentColor;
+    stroke: var(--superficie);
+    stroke-width: 2;
+    transition: r 0.15s ease;
+}
+
+.grafico-ponto.previsto {
+    fill: var(--superficie);
+    stroke: currentColor;
+}
+
+.grafico-ponto.ativo {
+    r: 6;
+}
+
+.grafico-mira {
+    stroke: var(--grafico-base);
+    stroke-width: 1;
+}
+
+/* Área de mouse/foco de cada mês: invisível, mas maior que a barra */
+.grafico-faixa {
+    fill: transparent;
+    cursor: default;
+    outline: none;
+}
+
+.grafico-faixa:focus-visible {
+    fill: var(--foco-anel);
+}
+
+/* Dica que aparece ao passar o mouse ou focar um mês */
+.grafico-dica {
+    position: fixed;
+    z-index: 40;
+    min-width: 170px;
+    max-width: 260px;
+    padding: 10px 12px;
+    border-radius: 10px;
+    background-color: var(--superficie);
+    border: 1px solid var(--borda);
+    box-shadow: var(--sombra-flutuante);
+    pointer-events: none;
+    font-size: 0.85rem;
+}
+
+.grafico-dica-titulo {
+    display: block;
+    margin-bottom: 6px;
+    color: var(--texto-suave);
+    font-weight: 500;
+    font-size: 0.8rem;
+}
+
+.grafico-dica-linha {
+    display: flex;
+    align-items: baseline;
+    gap: 8px;
+}
+
+/* Chave em forma de risquinho com a cor da série */
+.grafico-dica-chave {
+    flex-shrink: 0;
+    width: 12px;
+    height: 2px;
+    border-radius: 2px;
+    align-self: center;
+    background-color: transparent;
+}
+
+.grafico-dica-chave.entrada { background-color: var(--cor-entrada); }
+.grafico-dica-chave.saida { background-color: var(--cor-saida); }
+.grafico-dica-chave.evolucao { background-color: var(--grafico-saldo); }
+
+.grafico-dica-valor {
+    font-weight: 600;
+    color: var(--texto-forte);
+    font-variant-numeric: tabular-nums;
+}
+
+.grafico-dica-rotulo {
+    color: var(--texto-suave);
 }
 
 /* ---------- Diálogos (exportar e importar) ---------- */
@@ -1605,7 +1998,46 @@ button[type="submit"]:active {
     background: var(--destaque);
 }
 
+@media (max-width: 900px) {
+    .relatorio-cartoes {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+
+    .relatorio-grade {
+        grid-template-columns: minmax(0, 1fr);
+    }
+}
+
 @media (max-width: 480px) {
+    .relatorio-cartoes {
+        grid-template-columns: minmax(0, 1fr);
+        gap: 12px;
+    }
+
+    .relatorio-cartao-valor {
+        font-size: 1.4rem;
+    }
+
+    .relatorio-bloco {
+        padding: 16px;
+    }
+
+    /* No celular, rótulo em cima e valor embaixo (não cabem lado a lado) */
+    .relatorio-informacoes {
+        grid-template-columns: minmax(0, 1fr);
+    }
+
+    .relatorio-informacoes dt {
+        padding-bottom: 0;
+        border-bottom: none;
+        font-size: 0.82rem;
+    }
+
+    .relatorio-informacoes dd {
+        padding-top: 2px;
+        text-align: left;
+    }
+
     .periodo-tipos {
         align-self: stretch;
     }

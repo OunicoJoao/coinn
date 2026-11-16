@@ -4,16 +4,19 @@
  * ver histórico (#19), editar e excluir (#20), categorias e subcategorias, filtros e limpar tudo,
  * movimentações futuras (saldo atual x previsto), visão Geral / Mensal (com filtro De/Até
  * no histórico) e seleção de várias movimentações para excluir de uma vez.
+ * Aba Relatórios: números do período, gráficos de entradas, saídas e saldo por mês,
+ * categorias, destaques, tabela mês a mês, planilha CSV e impressão.
  * Na barra do topo: mostrar/ocultar valores, modo claro/noturno e exportar/importar os dados (#21):
  * exportar um mês, vários meses, um ano ou tudo (e, se quiser, remover esse período da Coinn);
  * importar incorporando aos dados atuais (com tratamento de conflitos) ou substituindo.
  *
  * Este arquivo só cuida da tela (ler o formulário, desenhar a lista, reagir a cliques).
  * - As regras de negócio (validar, calcular, filtrar, ordenar) ficam em regras.js.
+ * - Os cálculos dos relatórios ficam em relatorios.js; os gráficos, em graficos.js.
  * - O acesso aos dados fica em storage.js.
  */
 
-/* global Regras, Armazenamento */
+/* global Regras, Relatorios, Graficos, Armazenamento */
 
 // ---------- Constantes ----------
 
@@ -22,14 +25,16 @@ const { TIPO, LIMITES, FILTRO_TODOS, FILTRO_SEM, SITUACAO_MES, TIPO_PERIODO, MOD
 // Visões do topo da página
 const VISAO = Object.freeze({
     GERAL: "geral",   // todas as movimentações; saldo atual + previsto
-    MENSAL: "mensal"  // um mês por vez, escolhido no navegador de meses
+    MENSAL: "mensal", // um mês por vez, escolhido no navegador de meses
+    RELATORIOS: "relatorios" // gráficos e números de um período
 });
 
-// Nomes das opções de período (exportar e importar)
+// Nomes das opções de período (relatórios, exportar e importar)
 const NOME_PERIODO = Object.freeze({
     [TIPO_PERIODO.MES]: "Mês",
     [TIPO_PERIODO.MESES]: "Vários meses",
     [TIPO_PERIODO.ANO]: "Ano",
+    [TIPO_PERIODO.ULTIMOS_12]: "Últimos 12 meses",
     [TIPO_PERIODO.TUDO]: "Tudo"
 });
 
@@ -47,6 +52,15 @@ const COR_BARRA_NAVEGADOR = Object.freeze({
 
 // Tempo que o aviso rápido fica na tela
 const DURACAO_AVISO_MS = 3500;
+
+// Formatos dos relatórios: valores curtos nos gráficos ("R$ 15 mil") e porcentagens ("42%")
+const formatoCompacto = new Intl.NumberFormat("pt-BR", {
+    style: "currency", currency: "BRL", notation: "compact", maximumFractionDigits: 1
+});
+const formatoSemCentavos = new Intl.NumberFormat("pt-BR", {
+    style: "currency", currency: "BRL", maximumFractionDigits: 0
+});
+const formatoPorcentagem = new Intl.NumberFormat("pt-BR", { style: "percent", maximumFractionDigits: 0 });
 
 // ---------- Elementos da página ----------
 
@@ -108,6 +122,23 @@ const btnExportarEl = document.getElementById("btn-exportar");
 const btnImportarEl = document.getElementById("btn-importar");
 const arquivoImportarEl = document.getElementById("arquivo-importar");
 const avisoEl = document.getElementById("aviso");
+const painelSaldoEl = document.getElementById("painel-saldo");
+const painelPrincipalEl = document.getElementById("painel-principal");
+
+// Relatórios
+const relatorioEl = document.getElementById("relatorio");
+const relatorioSubtituloEl = document.getElementById("relatorio-subtitulo");
+const relatorioPeriodoEl = document.getElementById("relatorio-periodo");
+const relatorioVazioEl = document.getElementById("relatorio-vazio");
+const relatorioConteudoEl = document.getElementById("relatorio-conteudo");
+const relatorioCartoesEl = document.getElementById("relatorio-cartoes");
+const graficoEntradasEl = document.getElementById("grafico-entradas");
+const graficoSaidasEl = document.getElementById("grafico-saidas");
+const graficoSaldoEl = document.getElementById("grafico-saldo");
+const relatorioInformacoesEl = document.getElementById("relatorio-informacoes");
+const relatorioDestaquesEl = document.getElementById("relatorio-destaques");
+const tabelaCorpoEl = document.getElementById("relatorio-tabela-corpo");
+const tabelaRodapeEl = document.getElementById("relatorio-tabela-rodape");
 
 // Diálogo de exportar
 const dialogoExportarEl = document.getElementById("dialogo-exportar");
@@ -231,13 +262,17 @@ document.addEventListener("click", fecharMenuAoClicarFora);
 document.addEventListener("keydown", fecharMenuComEsc);
 document.addEventListener("keydown", cancelarSelecaoComEsc);
 
-// Seletores de período: exportar e importar
+// Seletores de período: relatórios, exportar e importar
+const seletorRelatorio = criarSeletorPeriodo(relatorioPeriodoEl, "relatorio",
+    [TIPO_PERIODO.MES, TIPO_PERIODO.MESES, TIPO_PERIODO.ANO, TIPO_PERIODO.ULTIMOS_12, TIPO_PERIODO.TUDO],
+    atualizarRelatorio);
 const seletorExportar = criarSeletorPeriodo(exportarPeriodoEl, "exportar",
     [TIPO_PERIODO.TUDO, TIPO_PERIODO.MES, TIPO_PERIODO.MESES, TIPO_PERIODO.ANO],
     atualizarPreviaExportar);
 const seletorImportar = criarSeletorPeriodo(importarPeriodoEl, "importar",
     [TIPO_PERIODO.TUDO, TIPO_PERIODO.MES, TIPO_PERIODO.MESES, TIPO_PERIODO.ANO],
     atualizarPreviaImportar);
+seletorRelatorio.definirEscolha({ tipo: TIPO_PERIODO.ANO, ano: hoje().slice(0, 4) });
 
 // Diálogos de exportar e importar
 exportarRemoverEl.addEventListener("change", atualizarPreviaExportar);
@@ -510,6 +545,7 @@ function trocarVisao(evento) {
         mesVisao = mesDeHoje(); // ao entrar na visão mensal, começa no mês de hoje
         limparPeriodo();
     }
+    Graficos.esconderDica();
     atualizarTela();
 }
 
@@ -557,11 +593,17 @@ function irParaMes(anoMes) {
 // Abas, navegador de meses e filtro de mês de acordo com a visão escolhida
 function atualizarVisao() {
     const mensal = visao === VISAO.MENSAL;
+    const relatorios = visao === VISAO.RELATORIOS;
 
     abasVisaoEl.querySelectorAll("[data-visao]").forEach((aba) => {
         aba.setAttribute("aria-pressed", String(aba.dataset.visao === visao));
     });
     navegadorMesEl.hidden = !mensal;
+
+    // Relatórios ocupam o lugar do saldo, do histórico e do formulário
+    relatorioEl.hidden = !relatorios;
+    painelSaldoEl.hidden = relatorios;
+    painelPrincipalEl.hidden = relatorios;
     mesVisaoEl.textContent = Regras.formatarMes(mesVisao);
     btnMesAtualEl.hidden = mesVisao === mesDeHoje();
 
@@ -982,6 +1024,7 @@ function alternarVisibilidade() {
     aplicarVisibilidade();
     atualizarResumo();
     atualizarHistorico();
+    if (visao === VISAO.RELATORIOS) atualizarRelatorio();
 }
 
 // Atualiza o botão (ícone, texto para leitor de tela) de acordo com o estado
@@ -1051,7 +1094,7 @@ function fecharMenuComEsc(evento) {
     }
 }
 
-// ---------- Seletor de período (exportar e importar) ----------
+// ---------- Seletor de período (relatórios, exportar e importar) ----------
 
 // Monta, dentro do container, a escolha do período: botões com os tipos (Mês, Vários meses,
 // Ano...) e os campos de cada tipo. "aoMudar" é chamada sempre que a escolha muda.
@@ -1189,6 +1232,335 @@ function criarSeletorPeriodo(container, prefixo, tipos, aoMudar) {
     return Object.freeze({ definirOpcoes, definirEscolha, lerEscolha, mostrarErro });
 }
 
+// ---------- Relatórios ----------
+
+// Valor curto para os eixos e rótulos dos gráficos: "R$ 800", "R$ 2.500", "R$ 15 mil".
+// Com o "olho" fechado, devolve null (o gráfico não mostra números).
+function valorCurto(numero) {
+    if (!valoresVisiveis) return null;
+    return Math.abs(numero) >= 10000 ? formatoCompacto.format(numero) : formatoSemCentavos.format(numero);
+}
+
+// "42%"; um valor pequeno, mas que existe, aparece como "<1%" (e não "0%")
+function porcentagem(numero) {
+    if (numero > 0 && numero < 0.005) return "<1%";
+    return formatoPorcentagem.format(numero);
+}
+
+// Meses que o seletor do relatório oferece: dos dados e, pelo menos, os últimos 12 meses
+function mesesDoRelatorio() {
+    const mesAtual = mesDeHoje();
+    const limites = Regras.limitesDosMeses(movimentacoes);
+    const inicio = [Regras.deslocarMes(mesAtual, -11), limites?.inicio].filter(Boolean).sort()[0];
+    const fim = [mesAtual, limites?.fim].filter(Boolean).sort().reverse()[0];
+    return Regras.listarMesesEntre(inicio, fim);
+}
+
+function anosDoRelatorio() {
+    const anos = new Set([hoje().slice(0, 4), ...Regras.listarAnos(movimentacoes)]);
+    return [...anos].sort().reverse();
+}
+
+function atualizarRelatorio() {
+    Graficos.esconderDica();
+    seletorRelatorio.definirOpcoes({
+        meses: mesesDoRelatorio(),
+        anos: anosDoRelatorio(),
+        mesPadrao: mesDeHoje()
+    });
+
+    const semDados = movimentacoes.length === 0;
+    if (semDados) {
+        relatorioSubtituloEl.textContent = "";
+        seletorRelatorio.mostrarErro("");
+        mostrarRelatorioVazio("Registre movimentações para ver os relatórios.");
+        return;
+    }
+
+    const periodo = Regras.resolverPeriodo(seletorRelatorio.lerEscolha(), movimentacoes, hoje());
+    seletorRelatorio.mostrarErro(periodo.erro);
+    if (periodo.erro) return; // mantém o relatório anterior até a escolha ficar válida
+
+    const relatorio = Relatorios.gerarRelatorio(movimentacoes, periodo, hoje());
+
+    const partes = [relatorio.descricao, textoQuantidade(relatorio.contagem.movimentacoes)];
+    if (relatorio.situacao !== SITUACAO_MES.PASSADO) partes.push("inclui valores previstos");
+    if (relatorio.contagem.ajustes > 0) partes.push("inclui ajuste de saldo de um período exportado");
+    relatorioSubtituloEl.replaceChildren(criarLinhaDeTexto(partes));
+
+    if (relatorio.vazio) {
+        mostrarRelatorioVazio(`Nenhuma movimentação em ${relatorio.descricao}. Escolha outro período.`);
+        return;
+    }
+
+    relatorioVazioEl.hidden = true;
+    relatorioConteudoEl.hidden = false;
+
+    desenharCartoes(relatorio);
+    desenharGraficosMensais(relatorio);
+    desenharInformacoes(relatorio);
+    desenharDestaques(relatorio);
+    desenharTabela(relatorio);
+}
+
+function mostrarRelatorioVazio(mensagem) {
+    relatorioVazioEl.textContent = mensagem;
+    relatorioVazioEl.hidden = false;
+    relatorioConteudoEl.hidden = true;
+}
+
+// Cartões do topo: entradas, saídas, resultado e saldo no fim do período
+function desenharCartoes(relatorio) {
+    const { totais, anterior, situacao } = relatorio;
+    const terminou = situacao === SITUACAO_MES.PASSADO;
+    const sinal = totais.resultado > 0 && valoresVisiveis ? "+" : "";
+
+    let detalheResultado = "";
+    if (relatorio.taxaEconomia !== null) {
+        detalheResultado = relatorio.taxaEconomia >= 0
+            ? `Guardou ${porcentagem(relatorio.taxaEconomia)} das entradas`
+            : `Gastou ${porcentagem(-relatorio.taxaEconomia)} a mais do que recebeu`;
+    } else if (totais.saidas > 0) {
+        detalheResultado = "Sem entradas no período";
+    }
+
+    relatorioCartoesEl.replaceChildren(
+        criarCartao("entrada", "Entradas", exibirValor(totais.entradas),
+            textoVariacao(anterior?.variacaoEntradas, anterior, true)),
+        criarCartao("saida", "Saídas", exibirValor(totais.saidas),
+            textoVariacao(anterior?.variacaoSaidas, anterior, false)),
+        criarCartao(totais.resultado < 0 ? "negativo" : "resultado", "Resultado",
+            `${sinal}${exibirValor(totais.resultado)}`, { texto: detalheResultado }),
+        criarCartao("saldo-final", terminou ? "Saldo no fim do período" : "Saldo previsto no fim",
+            exibirValor(totais.saldoFinal), { texto: `Começou com ${exibirValor(totais.saldoInicial)}` })
+    );
+}
+
+// "↑ 12% vs. Julho a Dezembro de 2025"; a cor diz se é bom (mais entradas, menos saídas) ou ruim
+function textoVariacao(variacao, anterior, subirEhBom) {
+    if (!anterior) return { texto: "Sem dados do período anterior para comparar" };
+    if (variacao === null || variacao === undefined) return { texto: `Nada no período anterior (${anterior.descricao})` };
+    if (Math.abs(variacao) < 0.005) return { texto: `Igual a ${anterior.descricao}` };
+    const subiu = variacao > 0;
+    return {
+        texto: `${subiu ? "↑" : "↓"} ${porcentagem(Math.abs(variacao))} vs. ${anterior.descricao}`,
+        classe: subiu === subirEhBom ? "bom" : "ruim"
+    };
+}
+
+function criarCartao(classe, rotulo, valor, detalhe) {
+    const cartao = document.createElement("div");
+    cartao.className = `relatorio-cartao ${classe}`;
+
+    const titulo = document.createElement("span");
+    titulo.className = "relatorio-cartao-rotulo";
+    titulo.textContent = rotulo;
+
+    const numero = document.createElement("strong");
+    numero.className = "relatorio-cartao-valor";
+    numero.textContent = valor;
+
+    cartao.append(titulo, numero);
+    if (detalhe?.texto) {
+        const texto = document.createElement("span");
+        texto.className = `relatorio-cartao-detalhe ${detalhe.classe || ""}`.trim();
+        texto.textContent = detalhe.texto;
+        cartao.append(texto);
+    }
+    return cartao;
+}
+
+// Gráficos de entradas por mês, saídas por mês e saldo no fim de cada mês
+function desenharGraficosMensais(relatorio) {
+    const { periodo } = relatorio;
+    const variosAnos = periodo.inicio.slice(0, 4) !== periodo.fim.slice(0, 4);
+
+    const base = relatorio.meses.map((mes) => {
+        const previsto = mes.situacao !== SITUACAO_MES.PASSADO;
+        return {
+            mes,
+            previsto,
+            rotulo: Regras.rotuloCurtoMes(mes.mes, variosAnos),
+            titulo: `${Regras.formatarMes(mes.mes)}${previsto ? " (previsto)" : ""}`
+        };
+    });
+
+    const desenharBarras = (container, campo, classe, nome) => {
+        const total = relatorio.totais[campo];
+        if (total === 0) {
+            container.replaceChildren(criarNota(`Nenhuma ${nome.toLowerCase().slice(0, -1)} no período.`));
+            return;
+        }
+        Graficos.barras(container, base.map((item) => ({
+            rotulo: item.rotulo,
+            valor: item.mes[campo],
+            previsto: item.previsto,
+            titulo: item.titulo,
+            descricaoAcessivel: `${item.titulo}: ${nome} ${exibirValor(item.mes[campo])}`,
+            linhasDica: [
+                { rotulo: nome, valor: exibirValor(item.mes[campo]), classe },
+                { rotulo: item.mes.quantidade === 1 ? "movimentação no mês" : "movimentações no mês", valor: String(item.mes.quantidade) }
+            ]
+        })), {
+            classe,
+            descricao: `${nome} por mês, ${relatorio.descricao}`,
+            formatarEixo: valorCurto,
+            rotuloMaior: valorCurto
+        });
+    };
+
+    desenharBarras(graficoEntradasEl, "entradas", "entrada", "Entradas");
+    desenharBarras(graficoSaidasEl, "saidas", "saida", "Saídas");
+
+    Graficos.linha(graficoSaldoEl, base.map((item) => {
+        const sinal = item.mes.resultado > 0 && valoresVisiveis ? "+" : "";
+        const linhasDica = [
+            { rotulo: item.previsto ? "saldo previsto no fim do mês" : "saldo no fim do mês", valor: exibirValor(item.mes.saldoFinal), classe: "evolucao" },
+            { rotulo: "resultado do mês", valor: `${sinal}${exibirValor(item.mes.resultado)}` }
+        ];
+        if (item.mes.ajustes !== 0) {
+            linhasDica.push({ rotulo: "ajuste de saldo", valor: exibirValor(item.mes.ajustes) });
+        }
+        return {
+            rotulo: item.rotulo,
+            valor: item.mes.saldoFinal,
+            previsto: item.previsto,
+            titulo: item.titulo,
+            descricaoAcessivel: `${item.titulo}: saldo no fim do mês ${exibirValor(item.mes.saldoFinal)}`,
+            linhasDica
+        };
+    }), {
+        classe: "evolucao",
+        descricao: `Saldo no fim de cada mês, ${relatorio.descricao}`,
+        formatarEixo: valorCurto,
+        rotuloMaior: valorCurto
+    });
+}
+
+function criarNota(texto) {
+    const nota = document.createElement("p");
+    nota.className = "relatorio-nota grafico-vazio";
+    nota.textContent = texto;
+    return nota;
+}
+
+// Lista de "rótulo: valor" (<dt>/<dd>); linhas com valor vazio não aparecem
+function preencherLista(elemento, linhas) {
+    elemento.replaceChildren(...linhas
+        .filter(([, valor]) => valor)
+        .flatMap(([rotulo, valor]) => {
+            const dt = document.createElement("dt");
+            dt.textContent = rotulo;
+            const dd = document.createElement("dd");
+            dd.textContent = valor;
+            return [dt, dd];
+        }));
+}
+
+function desenharInformacoes(relatorio) {
+    const { contagem, medias, totais, taxaEconomia } = relatorio;
+    const quantidadeMeses = contagem.meses === 1 ? "1 mês" : `${contagem.meses} meses`;
+
+    let economia = "";
+    if (taxaEconomia !== null) {
+        economia = taxaEconomia >= 0
+            ? `${porcentagem(taxaEconomia)} das entradas`
+            : `Negativa: gastou ${porcentagem(-taxaEconomia)} a mais do que recebeu`;
+    }
+
+    preencherLista(relatorioInformacoesEl, [
+        ["Período", `${relatorio.descricao} (${quantidadeMeses})`],
+        ["Movimentações", `${contagem.movimentacoes} (${contagem.entradas} ${contagem.entradas === 1 ? "entrada" : "entradas"} e ${contagem.saidas} ${contagem.saidas === 1 ? "saída" : "saídas"})`],
+        ["Saldo no início do período", exibirValor(totais.saldoInicial)],
+        ["Média de entradas por mês", exibirValor(medias.entradasPorMes)],
+        ["Média de saídas por mês", exibirValor(medias.saidasPorMes)],
+        ["Valor médio de cada saída", medias.valorPorSaida === null ? "" : exibirValor(medias.valorPorSaida)],
+        ["Taxa de economia", economia],
+        ["Categorias usadas", contagem.categorias ? String(contagem.categorias) : "Nenhuma"],
+        ["Movimentações futuras (previstas)", contagem.futuras ? String(contagem.futuras) : ""],
+        ["Ajustes de saldo (períodos exportados)", contagem.ajustes ? exibirValor(totais.ajustes) : ""]
+    ]);
+}
+
+// "Salário · 05/10/2026 · R$ 5.000,00"
+function textoMovimentacao(mov) {
+    return mov ? `${mov.descricao} · ${Regras.formatarData(mov.data)} · ${exibirValor(mov.valor)}` : "";
+}
+
+// "Março de 2026 · R$ 3.200,00"
+function textoMes(mes, campo, comSinal = false) {
+    if (!mes) return "";
+    const sinal = comSinal && mes[campo] > 0 && valoresVisiveis ? "+" : "";
+    return `${Regras.formatarMes(mes.mes)} · ${sinal}${exibirValor(mes[campo])}`;
+}
+
+function desenharDestaques(relatorio) {
+    const { destaques } = relatorio;
+    const mesesComMovimentacao = relatorio.meses.filter((mes) => mes.quantidade > 0).length;
+    const comparaMeses = mesesComMovimentacao >= 2;
+
+    preencherLista(relatorioDestaquesEl, [
+        ["Maior entrada", textoMovimentacao(destaques.maiorEntrada)],
+        ["Maior saída", textoMovimentacao(destaques.maiorSaida)],
+        ["Mês com mais entradas", comparaMeses ? textoMes(destaques.mesMaisEntradas, "entradas") : ""],
+        ["Mês com mais saídas", comparaMeses ? textoMes(destaques.mesMaisSaidas, "saidas") : ""],
+        ["Melhor mês (resultado)", comparaMeses ? textoMes(destaques.melhorMes, "resultado", true) : ""],
+        ["Pior mês (resultado)", comparaMeses ? textoMes(destaques.piorMes, "resultado", true) : ""]
+    ]);
+}
+
+function celula(texto, classe) {
+    const td = document.createElement("td");
+    td.textContent = texto;
+    if (classe) td.className = classe;
+    return td;
+}
+
+// Tabela "Mês a mês": os mesmos números dos gráficos
+function desenharTabela(relatorio) {
+    const comSinal = (numero) => `${numero > 0 && valoresVisiveis ? "+" : ""}${exibirValor(numero)}`;
+
+    tabelaCorpoEl.replaceChildren(...relatorio.meses.map((mes) => {
+        const tr = document.createElement("tr");
+        if (mes.situacao !== SITUACAO_MES.PASSADO) tr.classList.add("previsto");
+
+        const th = document.createElement("th");
+        th.scope = "row";
+        th.textContent = Regras.formatarMes(mes.mes);
+        if (mes.situacao !== SITUACAO_MES.PASSADO) {
+            const selo = document.createElement("span");
+            selo.className = "selo-futura";
+            selo.textContent = mes.situacao === SITUACAO_MES.ATUAL ? "Atual" : "Previsto";
+            th.append(" ", selo);
+        }
+
+        tr.append(
+            th,
+            celula(exibirValor(mes.entradas), "valor-entrada"),
+            celula(exibirValor(mes.saidas), "valor-saida"),
+            celula(comSinal(mes.resultado), mes.resultado < 0 ? "valor-negativo" : ""),
+            celula(exibirValor(mes.saldoFinal), mes.saldoFinal < 0 ? "valor-negativo" : ""),
+            celula(String(mes.quantidade))
+        );
+        return tr;
+    }));
+
+    const { totais, contagem } = relatorio;
+    const total = document.createElement("tr");
+    const th = document.createElement("th");
+    th.scope = "row";
+    th.textContent = "Total";
+    total.append(
+        th,
+        celula(exibirValor(totais.entradas), "valor-entrada"),
+        celula(exibirValor(totais.saidas), "valor-saida"),
+        celula(comSinal(totais.resultado), totais.resultado < 0 ? "valor-negativo" : ""),
+        celula(exibirValor(totais.saldoFinal), totais.saldoFinal < 0 ? "valor-negativo" : ""),
+        celula(String(contagem.movimentacoes))
+    );
+    tabelaRodapeEl.replaceChildren(total);
+}
+
 // ---------- #21 Exportar dados (por período, com opção de remover) ----------
 
 function abrirExportar() {
@@ -1213,7 +1585,7 @@ function abrirExportar() {
 // O que vai ser exportado com a escolha atual: { periodo, lista, erro? }
 function lerExportacao() {
     const escolha = seletorExportar.lerEscolha();
-    const periodo = Regras.resolverPeriodo(escolha, movimentacoes);
+    const periodo = Regras.resolverPeriodo(escolha, movimentacoes, hoje());
     if (periodo.erro) return { erro: periodo.erro };
     return {
         escolha,
@@ -1289,7 +1661,8 @@ function atualizarPreviaExportar() {
 
     if (ajuste.movimentacao && !exportarAjusteEl.checked) {
         exportarAlertaEl.textContent = `Sem o ajuste, o saldo de hoje muda em ${saldo > 0 && valoresVisiveis ? "-" : ""}`
-            + `${exibirValor(Math.abs(saldo))}, porque essas movimentações saem da conta.`;
+            + `${exibirValor(Math.abs(saldo))}, porque essas movimentações saem da conta. `
+            + "Os relatórios também deixam de mostrar esse período.";
         exportarAlertaEl.hidden = false;
     }
 }
@@ -1410,7 +1783,7 @@ async function abrirImportar() {
 
 // O que vai ser importado com as escolhas atuais do diálogo
 function lerImportacao() {
-    const periodo = Regras.resolverPeriodo(seletorImportar.lerEscolha(), importacao.lista);
+    const periodo = Regras.resolverPeriodo(seletorImportar.lerEscolha(), importacao.lista, hoje());
     if (periodo.erro) return { erro: periodo.erro };
 
     const modo = formImportarEl.querySelector('input[name="modo-importar"]:checked').value;
@@ -1626,6 +1999,7 @@ function atualizarTela() {
     atualizarOpcoesCategoria();
     atualizarSugestoesCategoria();
     atualizarHistorico();
+    if (visao === VISAO.RELATORIOS) atualizarRelatorio();
 }
 
 function atualizarContador() {
