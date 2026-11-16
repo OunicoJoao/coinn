@@ -86,7 +86,7 @@
                             </svg>
                             <span>
                                 Exportar dados
-                                <small>Baixa um arquivo .json com suas movimentações</small>
+                                <small>Baixa um .json de um mês, de vários meses, de um ano ou de tudo</small>
                             </span>
                         </button>
                         <button type="button" id="btn-importar" class="menu-item">
@@ -302,6 +302,22 @@
 
         </div>
     </main>
+
+    <!-- Exportar: escolher o período e, se quiser, remover esse período da Coinn -->
+    <dialog id="dialogo-exportar" class="dialogo" aria-labelledby="titulo-exportar">
+        <form id="form-exportar" class="dialogo-conteudo" novalidate>
+            <h2 id="titulo-exportar">Exportar dados</h2>
+            <p class="dialogo-texto">Escolha o que vai para o arquivo .json.</p>
+
+            <div id="exportar-periodo"></div>
+            <p id="exportar-previa" class="dialogo-previa" aria-live="polite"></p>
+
+            <div class="dialogo-botoes">
+                <button type="button" class="btn-cancelar" data-fechar>Cancelar</button>
+                <button type="submit" id="btn-confirmar-exportar">Exportar</button>
+            </div>
+        </form>
+    </dialog>
 
     <!-- Aviso rápido (ex.: "Dados exportados") -->
     <div id="aviso" class="aviso" role="status" aria-live="polite" hidden></div>

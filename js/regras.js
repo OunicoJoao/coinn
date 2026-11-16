@@ -16,6 +16,9 @@
  * As funções que dependem do dia recebem "hoje" como parâmetro ("AAAA-MM-DD"),
  * para continuarem puras e testáveis.
  *
+ * Períodos de meses: exportação e importação trabalham com um intervalo
+ * de meses { inicio, fim } ("AAAA-MM", os dois incluídos): um mês, vários meses ou um ano.
+ *
  * Modelo de dados de uma movimentação:
  *   { id, tipo ("entrada" | "saida"), valor, data ("AAAA-MM-DD"), descricao,
  *     categoria, subcategoria, dataModificacao? }
@@ -63,8 +66,17 @@ const Regras = (function () {
     });
 
     // Versão do formato do arquivo exportado.
-    // v1: sem categoria | v2: com categoria e subcategoria (arquivos v1 continuam aceitos)
-    const VERSAO_EXPORTACAO = 2;
+    // v1: sem categoria | v2: com categoria e subcategoria
+    // v3: com o período exportado e um resumo (arquivos v1 e v2 continuam aceitos)
+    const VERSAO_EXPORTACAO = 3;
+
+    // Como escolher o período (exportar e importar)
+    const TIPO_PERIODO = Object.freeze({
+        MES: "mes",
+        MESES: "meses",
+        ANO: "ano",
+        TUDO: "tudo"
+    });
 
     const NOMES_MESES = [
         "Janeiro", "Fevereiro", "Março", "Abril", "Maio", "Junho",
@@ -414,20 +426,120 @@ const Regras = (function () {
         return [...new Set(lista.map((mov) => mov.data.slice(0, 7)))].sort().reverse();
     }
 
+    // ---------- Períodos de meses (exportar e importar) ----------
+
+    // "2026-11" é um mês válido; "2026-13" e "2026-1" não
+    function anoMesValido(anoMes) {
+        return typeof anoMes === "string" && /^\d{4}-(0[1-9]|1[0-2])$/.test(anoMes);
+    }
+
+    // Primeiro e último mês com movimentação: { inicio, fim }, ou null se a lista estiver vazia
+    function limitesDosMeses(lista) {
+        if (lista.length === 0) return null;
+        const meses = lista.map((mov) => mov.data.slice(0, 7)).sort();
+        return { inicio: meses[0], fim: meses[meses.length - 1] };
+    }
+
+    // Anos que têm movimentação, do mais recente para o mais antigo
+    function listarAnos(lista) {
+        return [...new Set(lista.map((mov) => mov.data.slice(0, 4)))].sort().reverse();
+    }
+
+    // Todos os meses do intervalo, em ordem: ("2026-11", "2027-01") -> ["2026-11", "2026-12", "2027-01"]
+    function listarMesesEntre(inicio, fim) {
+        const meses = [];
+        for (let mes = inicio; mes <= fim; mes = deslocarMes(mes, 1)) {
+            meses.push(mes);
+        }
+        return meses;
+    }
+
+    // Transforma a escolha da tela em um intervalo { inicio, fim } ("AAAA-MM"), ou { erro }.
+    //   { tipo: "mes", mes }               um mês
+    //   { tipo: "meses", inicio, fim }     vários meses seguidos
+    //   { tipo: "ano", ano }               janeiro a dezembro do ano
+    //   { tipo: "tudo" }                   do primeiro ao último mês da lista
+    function resolverPeriodo(escolha, lista) {
+        switch (escolha?.tipo) {
+        case TIPO_PERIODO.MES:
+            if (!anoMesValido(escolha.mes)) return { erro: "Escolha o mês." };
+            return { inicio: escolha.mes, fim: escolha.mes };
+        case TIPO_PERIODO.MESES:
+            if (!anoMesValido(escolha.inicio) || !anoMesValido(escolha.fim)) {
+                return { erro: "Escolha o mês inicial e o final." };
+            }
+            if (escolha.fim < escolha.inicio) {
+                return { erro: "O mês final não pode ser antes do inicial." };
+            }
+            return { inicio: escolha.inicio, fim: escolha.fim };
+        case TIPO_PERIODO.ANO:
+            if (!/^\d{4}$/.test(String(escolha.ano))) return { erro: "Escolha o ano." };
+            return { inicio: `${escolha.ano}-01`, fim: `${escolha.ano}-12` };
+        case TIPO_PERIODO.TUDO:
+            return limitesDosMeses(lista) || { erro: "Não há movimentações." };
+        default:
+            return { erro: "Escolha um período." };
+        }
+    }
+
+    function estaNoPeriodo(mov, { inicio, fim }) {
+        const mes = mov.data.slice(0, 7);
+        return mes >= inicio && mes <= fim;
+    }
+
+    function filtrarPorPeriodo(lista, periodo) {
+        return lista.filter((mov) => estaNoPeriodo(mov, periodo));
+    }
+
+    function ehAnoInteiro({ inicio, fim }) {
+        return inicio.slice(0, 4) === fim.slice(0, 4) && inicio.endsWith("-01") && fim.endsWith("-12");
+    }
+
+    // "Novembro de 2026" | "Ano de 2026" | "Janeiro a Março de 2026" | "Novembro de 2025 a Março de 2026"
+    function descreverPeriodo(periodo) {
+        const { inicio, fim } = periodo;
+        if (inicio === fim) return formatarMes(inicio);
+        if (ehAnoInteiro(periodo)) return `Ano de ${inicio.slice(0, 4)}`;
+        if (inicio.slice(0, 4) === fim.slice(0, 4)) {
+            return `${formatarMes(inicio).split(" ")[0]} a ${formatarMes(fim)}`;
+        }
+        return `${formatarMes(inicio)} a ${formatarMes(fim)}`;
+    }
+
+    // Parte do nome do arquivo: "2026-11" | "2026" | "2026-01_a_2026-03"
+    function nomeArquivoPeriodo(periodo) {
+        if (periodo.inicio === periodo.fim) return periodo.inicio;
+        if (ehAnoInteiro(periodo)) return periodo.inicio.slice(0, 4);
+        return `${periodo.inicio}_a_${periodo.fim}`;
+    }
+
     // ---------- Exportar e importar ----------
 
-    function montarExportacao(lista, exportadoEm) {
+    // periodo: { inicio, fim } exportado (null = todos os dados)
+    function montarExportacao(lista, exportadoEm, periodo = null) {
+        const { entradas, saidas, saldo } = calcularResumo(lista);
         return {
             app: "coinn",
             versao: VERSAO_EXPORTACAO,
             exportadoEm,
+            periodo: periodo ? { inicio: periodo.inicio, fim: periodo.fim } : null,
+            resumo: { quantidade: lista.length, entradas, saidas, resultado: saldo },
             movimentacoes: lista
         };
     }
 
-    // Confere o conteúdo do arquivo e devolve { lista, ignoradas } ou { erro }.
+    // { inicio, fim } válido, ou null
+    function lerPeriodo(periodo) {
+        if (!anoMesValido(periodo?.inicio) || !anoMesValido(periodo?.fim) || periodo.fim < periodo.inicio) {
+            return null;
+        }
+        return { inicio: periodo.inicio, fim: periodo.fim };
+    }
+
+    // Confere o conteúdo do arquivo e devolve { lista, ignoradas, periodo } ou { erro }.
     // Aceita o formato exportado pela Coinn ({ movimentacoes: [...] }) ou só a lista.
     // Arquivos antigos (v1) não têm categoria: as movimentações ficam sem categoria.
+    // periodo: o período informado no arquivo (v3), ou null.
     function lerMovimentacoesImportadas(conteudo, gerarId) {
         const itens = Array.isArray(conteudo) ? conteudo : conteudo?.movimentacoes;
         if (!Array.isArray(itens)) {
@@ -473,7 +585,7 @@ const Regras = (function () {
         if (lista.length === 0) {
             return { erro: "Nenhuma movimentação válida encontrada no arquivo." };
         }
-        return { lista, ignoradas };
+        return { lista, ignoradas, periodo: Array.isArray(conteudo) ? null : lerPeriodo(conteudo.periodo) };
     }
 
     // ---------- Formatação ----------
@@ -515,6 +627,7 @@ const Regras = (function () {
         FILTRO_TODOS,
         FILTRO_SEM,
         SITUACAO_MES,
+        TIPO_PERIODO,
         arredondarCentavos,
         dataValida,
         validarMovimentacao,
@@ -544,6 +657,15 @@ const Regras = (function () {
         filtroAtivo,
         ordenarHistorico,
         listarMeses,
+        anoMesValido,
+        limitesDosMeses,
+        listarAnos,
+        listarMesesEntre,
+        resolverPeriodo,
+        estaNoPeriodo,
+        filtrarPorPeriodo,
+        descreverPeriodo,
+        nomeArquivoPeriodo,
         montarExportacao,
         lerMovimentacoesImportadas,
         formatarMoeda,

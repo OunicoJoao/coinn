@@ -520,3 +520,83 @@ describe("período (data inicial e final)", () => {
         assert.equal(Regras.calcularResumoPeriodo(lista, "2026-11-04", "2026-11-30", HOJE).situacao, SITUACAO_MES.FUTURO);
     });
 });
+
+describe("períodos de meses (relatórios, exportar e importar)", () => {
+    const lista = [
+        mov({ id: 1, data: "2025-11-03" }),
+        mov({ id: 2, data: "2026-02-10" }),
+        mov({ id: 3, data: "2026-02-28" })
+    ];
+
+    it("resolve mês, vários meses, ano e tudo", () => {
+        const hoje = "2026-11-10";
+        assert.deepEqual(Regras.resolverPeriodo({ tipo: "mes", mes: "2026-02" }, lista, hoje), { inicio: "2026-02", fim: "2026-02" });
+        assert.deepEqual(Regras.resolverPeriodo({ tipo: "meses", inicio: "2025-12", fim: "2026-03" }, lista, hoje), { inicio: "2025-12", fim: "2026-03" });
+        assert.deepEqual(Regras.resolverPeriodo({ tipo: "ano", ano: "2025" }, lista, hoje), { inicio: "2025-01", fim: "2025-12" });
+        assert.deepEqual(Regras.resolverPeriodo({ tipo: "tudo" }, lista, hoje), { inicio: "2025-11", fim: "2026-02" });
+    });
+
+    it("recusa escolhas inválidas", () => {
+        const hoje = "2026-11-10";
+        assert.match(Regras.resolverPeriodo({ tipo: "meses", inicio: "2026-05", fim: "2026-02" }, lista, hoje).erro, /antes do inicial/);
+        assert.ok(Regras.resolverPeriodo({ tipo: "mes", mes: "2026-13" }, lista, hoje).erro);
+        assert.ok(Regras.resolverPeriodo({ tipo: "ano", ano: "26" }, lista, hoje).erro);
+        assert.ok(Regras.resolverPeriodo({ tipo: "tudo" }, [], hoje).erro);
+        assert.ok(Regras.resolverPeriodo({ tipo: "semana" }, lista, hoje).erro);
+    });
+
+    it("lista meses do intervalo, atravessando o ano", () => {
+        assert.deepEqual(Regras.listarMesesEntre("2025-11", "2026-02"), ["2025-11", "2025-12", "2026-01", "2026-02"]);
+        assert.deepEqual(Regras.listarMesesEntre("2026-05", "2026-05"), ["2026-05"]);
+    });
+
+    it("filtra pelo período, incluindo o primeiro e o último mês", () => {
+        assert.deepEqual(ids(Regras.filtrarPorPeriodo(lista, { inicio: "2025-11", fim: "2026-01" })), [1]);
+        assert.deepEqual(ids(Regras.filtrarPorPeriodo(lista, { inicio: "2026-02", fim: "2026-02" })), [2, 3]);
+    });
+
+    it("lista os anos com movimentação, do mais recente", () => {
+        assert.deepEqual(Regras.listarAnos(lista), ["2026", "2025"]);
+    });
+
+    it("descreve o período por extenso e no nome do arquivo", () => {
+        const casos = [
+            [{ inicio: "2026-11", fim: "2026-11" }, "Novembro de 2026", "2026-11"],
+            [{ inicio: "2026-01", fim: "2026-12" }, "Ano de 2026", "2026"],
+            [{ inicio: "2026-01", fim: "2026-03" }, "Janeiro a Março de 2026", "2026-01_a_2026-03"],
+            [{ inicio: "2025-11", fim: "2026-02" }, "Novembro de 2025 a Fevereiro de 2026", "2025-11_a_2026-02"]
+        ];
+        casos.forEach(([periodo, longo, arquivo]) => {
+            assert.equal(Regras.descreverPeriodo(periodo), longo);
+            assert.equal(Regras.nomeArquivoPeriodo(periodo), arquivo);
+        });
+    });
+});
+
+describe("exportação v3", () => {
+    it("leva o período, um resumo e as movimentações", () => {
+        const lista = [mov({ id: 1, valor: 100 }), mov({ id: 2, tipo: TIPO.SAIDA, valor: 30.5 })];
+        const arquivo = Regras.montarExportacao(lista, "2026-11-10T12:00:00.000Z", { inicio: "2026-10", fim: "2026-10" });
+        assert.equal(arquivo.app, "coinn");
+        assert.equal(arquivo.versao, 3);
+        assert.deepEqual(arquivo.periodo, { inicio: "2026-10", fim: "2026-10" });
+        assert.deepEqual(arquivo.resumo, { quantidade: 2, entradas: 100, saidas: 30.5, resultado: 69.5 });
+        assert.equal(arquivo.movimentacoes, lista);
+        assert.equal(Regras.montarExportacao(lista, "x").periodo, null);
+    });
+
+    it("a importação devolve o período informado no arquivo", () => {
+        const arquivo = JSON.parse(JSON.stringify(Regras.montarExportacao([mov({ id: 5 })], "x", { inicio: "2025-01", fim: "2025-12" })));
+        const lido = Regras.lerMovimentacoesImportadas(arquivo, (i) => i);
+        assert.deepEqual(lido.periodo, { inicio: "2025-01", fim: "2025-12" });
+        assert.equal(lido.lista.length, 1);
+    });
+
+    it("ignora período inválido no arquivo", () => {
+        const arquivo = { periodo: { inicio: "2025-12", fim: "2025-01" }, movimentacoes: [mov()] };
+        const lido = Regras.lerMovimentacoesImportadas(arquivo, (i) => i);
+        assert.equal(lido.periodo, null);
+        assert.equal(lido.lista.length, 1);
+        assert.equal(Regras.lerMovimentacoesImportadas([mov()], (i) => i).periodo, null);
+    });
+});

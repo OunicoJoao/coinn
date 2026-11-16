@@ -60,6 +60,9 @@
     --sombra-item-hover: 0 4px 12px rgba(120, 90, 20, 0.12);
     --sombra-flutuante: 0 10px 28px rgba(0, 0, 0, 0.18); /* menu, aviso, barra do topo */
 
+    /* Diálogos (exportar e importar) */
+    --dialogo-fundo-tela: rgba(26, 32, 44, 0.45);
+
     color-scheme: light; /* calendário, selects e barras de rolagem nativas no tema claro */
 }
 
@@ -116,6 +119,8 @@
     --sombra-item: 0 2px 8px rgba(0, 0, 0, 0.25);
     --sombra-item-hover: 0 4px 12px rgba(0, 0, 0, 0.4);
     --sombra-flutuante: 0 10px 28px rgba(0, 0, 0, 0.5);
+
+    --dialogo-fundo-tela: rgba(0, 0, 0, 0.6);
 
     color-scheme: dark; /* calendário, selects e barras de rolagem nativas no tema noturno */
 }
@@ -1344,4 +1349,185 @@ button[type="submit"]:active {
         margin-left: auto;
     }
 
+}
+
+/* ---------- Seletor de período (exportar e importar) ---------- */
+
+.seletor-periodo {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+}
+
+/* Tipos de período em "botões grudados", como as abas Geral / Mensal / Relatórios */
+.periodo-tipos {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 4px;
+    padding: 4px;
+    border-radius: 12px;
+    background-color: var(--destaque-fundo);
+    border: 1px solid var(--borda);
+    align-self: flex-start;
+    max-width: 100%;
+}
+
+.periodo-tipo {
+    margin: 0;
+    cursor: pointer;
+}
+
+.periodo-tipo input {
+    position: absolute;
+    opacity: 0;
+    pointer-events: none;
+}
+
+.periodo-tipo span {
+    display: block;
+    padding: 6px 14px;
+    border-radius: 8px;
+    color: var(--texto-suave);
+    font-size: 0.9rem;
+    font-weight: 500;
+    white-space: nowrap;
+    transition: all 0.2s ease;
+}
+
+.periodo-tipo span:hover {
+    color: var(--texto-forte);
+}
+
+.periodo-tipo input:checked + span {
+    background-color: var(--destaque);
+    color: var(--texto-sobre-destaque);
+    box-shadow: var(--sombra-item);
+}
+
+.periodo-tipo input:focus-visible + span {
+    box-shadow: 0 0 0 3px var(--foco-anel);
+}
+
+.periodo-campos {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 12px;
+}
+
+.periodo-campo {
+    min-width: 170px;
+    flex: 0 1 220px;
+}
+
+.periodo-campo select {
+    padding: 8px 12px;
+    font-size: 0.95rem;
+}
+
+/* ---------- Diálogos (exportar e importar) ---------- */
+
+.dialogo {
+    width: min(560px, calc(100% - 24px));
+    max-height: calc(100vh - 32px);
+    margin: auto;
+    padding: 0;
+    border: 1px solid var(--borda);
+    border-radius: 20px;
+    background-color: var(--superficie-base);
+    color: var(--texto);
+    box-shadow: var(--sombra-flutuante);
+}
+
+.dialogo::backdrop {
+    background-color: var(--dialogo-fundo-tela);
+}
+
+.dialogo[open] {
+    animation: abrirMenu 0.18s ease;
+}
+
+.dialogo-conteudo {
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+    padding: 24px;
+}
+
+.dialogo-conteudo h2 {
+    margin-bottom: 0;
+}
+
+.dialogo-texto {
+    color: var(--texto-suave);
+    font-size: 0.92rem;
+    margin-top: -8px;
+}
+
+/* Resumo do que vai acontecer */
+.dialogo-previa {
+    padding: 10px 14px;
+    border-radius: 10px;
+    background-color: var(--destaque-fundo);
+    font-size: 0.9rem;
+    color: var(--texto-forte);
+}
+
+.dialogo-previa:empty {
+    display: none;
+}
+
+.dialogo-previa .linha-texto {
+    display: block;
+}
+
+.dialogo-previa .linha-texto + .linha-texto {
+    margin-top: 2px;
+    color: var(--texto);
+}
+
+.dialogo-botoes {
+    display: flex;
+    flex-direction: row-reverse;
+    gap: 10px;
+}
+
+.dialogo-botoes button {
+    width: auto;
+    flex: 1;
+    margin-top: 0;
+}
+
+.dialogo-botoes button[type="submit"]:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+    transform: none;
+    background: var(--destaque);
+}
+
+@media (max-width: 480px) {
+    .periodo-tipos {
+        align-self: stretch;
+    }
+
+    .periodo-tipo {
+        flex: 1 1 auto;
+    }
+
+    .periodo-tipo span {
+        text-align: center;
+        padding: 6px 10px;
+    }
+
+    .periodo-campo {
+        flex: 1 1 140px;
+        min-width: 0;
+    }
+
+    .dialogo-conteudo {
+        padding: 20px 16px;
+    }
+
+    .dialogo-botoes {
+        flex-direction: column;
+    }
 }

@@ -4,7 +4,8 @@
  * ver histórico (#19), editar e excluir (#20), categorias e subcategorias, filtros e limpar tudo,
  * movimentações futuras (saldo atual x previsto), visão Geral / Mensal (com filtro De/Até
  * no histórico) e seleção de várias movimentações para excluir de uma vez.
- * Na barra do topo: mostrar/ocultar valores, modo claro/noturno e exportar/importar os dados (#21).
+ * Na barra do topo: mostrar/ocultar valores, modo claro/noturno e exportar/importar os dados (#21):
+ * exportar um mês, vários meses, um ano ou tudo.
  *
  * Este arquivo só cuida da tela (ler o formulário, desenhar a lista, reagir a cliques).
  * - As regras de negócio (validar, calcular, filtrar, ordenar) ficam em regras.js.
@@ -15,12 +16,20 @@
 
 // ---------- Constantes ----------
 
-const { TIPO, LIMITES, FILTRO_TODOS, FILTRO_SEM, SITUACAO_MES } = Regras;
+const { TIPO, LIMITES, FILTRO_TODOS, FILTRO_SEM, SITUACAO_MES, TIPO_PERIODO } = Regras;
 
 // Visões do topo da página
 const VISAO = Object.freeze({
     GERAL: "geral",   // todas as movimentações; saldo atual + previsto
     MENSAL: "mensal"  // um mês por vez, escolhido no navegador de meses
+});
+
+// Nomes das opções de período (exportar e importar)
+const NOME_PERIODO = Object.freeze({
+    [TIPO_PERIODO.MES]: "Mês",
+    [TIPO_PERIODO.MESES]: "Vários meses",
+    [TIPO_PERIODO.ANO]: "Ano",
+    [TIPO_PERIODO.TUDO]: "Tudo"
 });
 
 // Texto mostrado no lugar dos valores quando o "olho" está fechado
@@ -95,6 +104,13 @@ const btnExportarEl = document.getElementById("btn-exportar");
 const btnImportarEl = document.getElementById("btn-importar");
 const arquivoImportarEl = document.getElementById("arquivo-importar");
 const avisoEl = document.getElementById("aviso");
+
+// Diálogo de exportar
+const dialogoExportarEl = document.getElementById("dialogo-exportar");
+const formExportarEl = document.getElementById("form-exportar");
+const exportarPeriodoEl = document.getElementById("exportar-periodo");
+const exportarPreviaEl = document.getElementById("exportar-previa");
+const btnConfirmarExportarEl = document.getElementById("btn-confirmar-exportar");
 
 // ---------- Estado ----------
 
@@ -179,12 +195,23 @@ listaEl.addEventListener("click", tratarCliqueNaLista);
 btnVisibilidadeEl.addEventListener("click", alternarVisibilidade);
 btnTemaEl.addEventListener("click", alternarTema);
 btnDadosEl.addEventListener("click", alternarMenuDados);
-btnExportarEl.addEventListener("click", exportarDados);
+btnExportarEl.addEventListener("click", abrirExportar);
 btnImportarEl.addEventListener("click", () => arquivoImportarEl.click());
 arquivoImportarEl.addEventListener("change", importarDados);
 document.addEventListener("click", fecharMenuAoClicarFora);
 document.addEventListener("keydown", fecharMenuComEsc);
 document.addEventListener("keydown", cancelarSelecaoComEsc);
+
+// Seletor de período do diálogo de exportar
+const seletorExportar = criarSeletorPeriodo(exportarPeriodoEl, "exportar",
+    [TIPO_PERIODO.TUDO, TIPO_PERIODO.MES, TIPO_PERIODO.MESES, TIPO_PERIODO.ANO],
+    atualizarPreviaExportar);
+
+// Diálogo de exportar
+formExportarEl.addEventListener("submit", confirmarExportar);
+document.querySelectorAll("dialog [data-fechar]").forEach((botao) => {
+    botao.addEventListener("click", () => botao.closest("dialog").close());
+});
 
 aplicarVisibilidade();
 aplicarTema();
@@ -844,8 +871,8 @@ function cancelarSelecao() {
 }
 
 function cancelarSelecaoComEsc(evento) {
-    // Se o menu de dados estiver aberto, o Esc fecha só o menu
-    if (evento.key === "Escape" && menuDadosEl.hidden && selecionadas.size > 0) {
+    // Se o menu de dados ou um diálogo estiver aberto, o Esc fecha só ele
+    if (evento.key === "Escape" && menuDadosEl.hidden && !algumDialogoAberto() && selecionadas.size > 0) {
         cancelarSelecao();
     }
 }
@@ -980,10 +1007,147 @@ function fecharMenuComEsc(evento) {
     }
 }
 
-// ---------- #21 Exportar dados ----------
+// ---------- Seletor de período (exportar e importar) ----------
 
-// Gera um arquivo .json com todas as movimentações e faz o download
-function exportarDados() {
+// Monta, dentro do container, a escolha do período: botões com os tipos (Mês, Vários meses,
+// Ano...) e os campos de cada tipo. "aoMudar" é chamada sempre que a escolha muda.
+// Devolve { definirOpcoes, definirEscolha, lerEscolha, mostrarErro }.
+function criarSeletorPeriodo(container, prefixo, tipos, aoMudar) {
+    const raiz = document.createElement("div");
+    raiz.className = "seletor-periodo";
+
+    const grupoTipos = document.createElement("div");
+    grupoTipos.className = "periodo-tipos";
+    grupoTipos.setAttribute("role", "radiogroup");
+    grupoTipos.setAttribute("aria-label", "Período");
+
+    const radios = tipos.map((tipo) => {
+        const rotulo = document.createElement("label");
+        rotulo.className = "periodo-tipo";
+        const radio = document.createElement("input");
+        radio.type = "radio";
+        radio.name = `${prefixo}-tipo`;
+        radio.value = tipo;
+        const texto = document.createElement("span");
+        texto.textContent = NOME_PERIODO[tipo];
+        rotulo.append(radio, texto);
+        grupoTipos.append(rotulo);
+        return radio;
+    });
+
+    // Um campo com rótulo e select; "tipos" diz em quais tipos de período ele aparece
+    function criarCampo(texto, sufixo, tiposDoCampo) {
+        const grupo = document.createElement("div");
+        grupo.className = "filtro periodo-campo";
+        grupo.dataset.tipos = tiposDoCampo.join(" ");
+        const rotulo = document.createElement("label");
+        rotulo.htmlFor = `${prefixo}-${sufixo}`;
+        rotulo.textContent = texto;
+        const select = document.createElement("select");
+        select.id = `${prefixo}-${sufixo}`;
+        grupo.append(rotulo, select);
+        return { grupo, select };
+    }
+
+    const campoMes = criarCampo("Mês", "mes", [TIPO_PERIODO.MES]);
+    const campoDe = criarCampo("De", "de", [TIPO_PERIODO.MESES]);
+    const campoAte = criarCampo("Até", "ate", [TIPO_PERIODO.MESES]);
+    const campoAno = criarCampo("Ano", "ano", [TIPO_PERIODO.ANO]);
+    const campos = [campoMes, campoDe, campoAte, campoAno];
+
+    const linhaCampos = document.createElement("div");
+    linhaCampos.className = "periodo-campos";
+    linhaCampos.append(...campos.map((campo) => campo.grupo));
+
+    const erro = document.createElement("p");
+    erro.className = "filtro-periodo-erro";
+    erro.setAttribute("role", "alert");
+    erro.hidden = true;
+
+    raiz.append(grupoTipos, linhaCampos, erro);
+    container.replaceChildren(raiz);
+
+    function tipoEscolhido() {
+        const marcado = radios.find((radio) => radio.checked);
+        return marcado ? marcado.value : tipos[0];
+    }
+
+    function mostrarCamposDoTipo() {
+        const tipo = tipoEscolhido();
+        campos.forEach(({ grupo }) => {
+            grupo.hidden = !grupo.dataset.tipos.split(" ").includes(tipo);
+        });
+        linhaCampos.hidden = campos.every(({ grupo }) => grupo.hidden);
+    }
+
+    grupoTipos.addEventListener("change", () => {
+        mostrarCamposDoTipo();
+        aoMudar();
+    });
+    campos.forEach(({ select }) => select.addEventListener("change", aoMudar));
+
+    // Mantém o valor escolhido se ele ainda existir; senão usa o padrão
+    function preencher(select, opcoes, padrao) {
+        const atual = select.value;
+        select.replaceChildren(...opcoes.map(([valor, texto]) => new Option(texto, valor)));
+        const valores = opcoes.map(([valor]) => valor);
+        select.value = valores.includes(atual) ? atual : padrao;
+    }
+
+    // meses: ["AAAA-MM", ...] em ordem crescente | anos: ["AAAA", ...]
+    // mesPadrao: mês sugerido para "Mês" e "Até" (o mais recente, se não for informado)
+    function definirOpcoes({ meses, anos, mesPadrao }) {
+        const recentes = [...meses].reverse(); // mais recente primeiro, como no filtro do histórico
+        const opcoesMes = recentes.map((mes) => [mes, Regras.formatarMes(mes)]);
+        const ultimo = meses.includes(mesPadrao) ? mesPadrao : meses[meses.length - 1];
+        const indiceUltimo = meses.indexOf(ultimo);
+        const primeiroSugerido = meses[Math.max(0, indiceUltimo - 5)];
+
+        preencher(campoMes.select, opcoesMes, ultimo);
+        preencher(campoDe.select, opcoesMes, primeiroSugerido);
+        preencher(campoAte.select, opcoesMes, ultimo);
+        preencher(campoAno.select, anos.map((ano) => [ano, ano]), anos[0]);
+        mostrarCamposDoTipo();
+    }
+
+    function definirEscolha(escolha) {
+        radios.forEach((radio) => {
+            radio.checked = radio.value === escolha.tipo;
+        });
+        if (escolha.mes) campoMes.select.value = escolha.mes;
+        if (escolha.inicio) campoDe.select.value = escolha.inicio;
+        if (escolha.fim) campoAte.select.value = escolha.fim;
+        if (escolha.ano) {
+            // O ano pode ainda não estar nas opções (lista vazia): cria a opção
+            if (![...campoAno.select.options].some((opcao) => opcao.value === escolha.ano)) {
+                campoAno.select.append(new Option(escolha.ano, escolha.ano));
+            }
+            campoAno.select.value = escolha.ano;
+        }
+        mostrarCamposDoTipo();
+    }
+
+    function lerEscolha() {
+        return {
+            tipo: tipoEscolhido(),
+            mes: campoMes.select.value,
+            inicio: campoDe.select.value,
+            fim: campoAte.select.value,
+            ano: campoAno.select.value
+        };
+    }
+
+    function mostrarErro(mensagem) {
+        erro.textContent = mensagem || "";
+        erro.hidden = !mensagem;
+    }
+
+    return Object.freeze({ definirOpcoes, definirEscolha, lerEscolha, mostrarErro });
+}
+
+// ---------- #21 Exportar dados (por período) ----------
+
+function abrirExportar() {
     fecharMenuDados();
 
     if (movimentacoes.length === 0) {
@@ -991,21 +1155,73 @@ function exportarDados() {
         return;
     }
 
-    const conteudo = Regras.montarExportacao(movimentacoes, new Date().toISOString());
-    const arquivo = new Blob([JSON.stringify(conteudo, null, 2)], { type: "application/json" });
-    const url = URL.createObjectURL(arquivo);
+    seletorExportar.definirOpcoes({
+        meses: Regras.listarMeses(movimentacoes).reverse(),
+        anos: Regras.listarAnos(movimentacoes)
+    });
+    seletorExportar.definirEscolha({ tipo: TIPO_PERIODO.TUDO });
+    atualizarPreviaExportar();
+    dialogoExportarEl.showModal();
+}
 
-    // Cria um link temporário só para disparar o download
-    const link = document.createElement("a");
-    link.href = url;
-    link.download = `coinn-movimentacoes-${hoje()}.json`;
-    document.body.appendChild(link);
-    link.click();
-    link.remove();
-    URL.revokeObjectURL(url);
+// O que vai ser exportado com a escolha atual: { periodo, lista, erro? }
+function lerExportacao() {
+    const escolha = seletorExportar.lerEscolha();
+    const periodo = Regras.resolverPeriodo(escolha, movimentacoes);
+    if (periodo.erro) return { erro: periodo.erro };
+    return {
+        escolha,
+        periodo,
+        lista: Regras.filtrarPorPeriodo(movimentacoes, periodo),
+        tudo: escolha.tipo === TIPO_PERIODO.TUDO
+    };
+}
 
-    const quantidade = movimentacoes.length;
-    mostrarAviso(`${quantidade} ${quantidade === 1 ? "movimentação exportada" : "movimentações exportadas"}.`);
+function atualizarPreviaExportar() {
+    const exportacao = lerExportacao();
+    seletorExportar.mostrarErro(exportacao.erro);
+    if (exportacao.erro) {
+        exportarPreviaEl.textContent = "";
+        btnConfirmarExportarEl.disabled = true;
+        return;
+    }
+
+    const { periodo, lista, tudo } = exportacao;
+    const descricao = tudo ? "Todos os dados" : Regras.descreverPeriodo(periodo);
+
+    if (lista.length === 0) {
+        exportarPreviaEl.textContent = `Nenhuma movimentação em ${descricao}.`;
+        btnConfirmarExportarEl.disabled = true;
+        return;
+    }
+
+    const { entradas, saidas, saldo } = Regras.calcularResumo(lista);
+    exportarPreviaEl.replaceChildren(
+        criarLinhaDeTexto([descricao, textoQuantidade(lista.length)]),
+        criarLinhaDeTexto([
+            `Entradas: ${exibirValor(entradas)}`,
+            `Saídas: ${exibirValor(saidas)}`,
+            `Resultado: ${saldo > 0 && valoresVisiveis ? "+" : ""}${exibirValor(saldo)}`
+        ])
+    );
+    btnConfirmarExportarEl.disabled = false;
+}
+
+function confirmarExportar(evento) {
+    evento.preventDefault();
+    const exportacao = lerExportacao();
+    if (exportacao.erro || exportacao.lista.length === 0) return;
+
+    const { periodo, lista, tudo } = exportacao;
+    const descricao = tudo ? "todos os dados" : Regras.descreverPeriodo(periodo);
+    const nome = tudo
+        ? `coinn-movimentacoes-${hoje()}.json`
+        : `coinn-movimentacoes-${Regras.nomeArquivoPeriodo(periodo)}.json`;
+    const conteudo = Regras.montarExportacao(lista, new Date().toISOString(), periodo);
+    baixarArquivo(JSON.stringify(conteudo, null, 2), nome, "application/json");
+
+    dialogoExportarEl.close();
+    mostrarAviso(`${textoQuantidade(lista.length)} ${lista.length === 1 ? "exportada" : "exportadas"} (${descricao}).`);
 }
 
 // ---------- #21 Importar dados ----------
@@ -1108,6 +1324,23 @@ function esconderErro() {
 
 function hoje() {
     return Regras.dataISO(new Date());
+}
+
+function algumDialogoAberto() {
+    return document.querySelector("dialog[open]") !== null;
+}
+
+// Gera um arquivo e faz o download por um link temporário
+function baixarArquivo(conteudo, nome, tipo) {
+    const arquivo = new Blob([conteudo], { type: tipo });
+    const url = URL.createObjectURL(arquivo);
+    const link = document.createElement("a");
+    link.href = url;
+    link.download = nome;
+    document.body.appendChild(link);
+    link.click();
+    link.remove();
+    URL.revokeObjectURL(url);
 }
 
 // "AAAA-MM" de hoje
