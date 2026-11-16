@@ -671,3 +671,117 @@ describe("exportação v3", () => {
         assert.equal(Regras.lerMovimentacoesImportadas([mov()], (i) => i).periodo, null);
     });
 });
+
+describe("importar incorporando aos dados atuais", () => {
+    const atuais = [
+        mov({ id: 1, descricao: "Salário", valor: 5000 }),
+        mov({ id: 2, tipo: TIPO.SAIDA, descricao: "Café", valor: 8, data: "2026-10-01" }),
+        mov({ id: 3, tipo: TIPO.SAIDA, descricao: "Mercado", valor: 400, data: "2026-10-03" })
+    ];
+
+    it("separa novas, iguais (mesmo id e conteúdo) e conflitos (mesmo id, conteúdo diferente)", () => {
+        const { novas, iguais, conflitos } = Regras.compararImportacao(atuais, [
+            mov({ id: 1, descricao: "Salário", valor: 5000 }),
+            mov({ id: 3, tipo: TIPO.SAIDA, descricao: "Mercado", valor: 450, data: "2026-10-03" }),
+            mov({ id: 9, descricao: "Freela", valor: 300 })
+        ]);
+        assert.deepEqual(ids(novas), [9]);
+        assert.deepEqual(ids(iguais), [1]);
+        assert.equal(conflitos.length, 1);
+        assert.equal(conflitos[0].atual.valor, 400);
+        assert.equal(conflitos[0].importada.valor, 450);
+        assert.deepEqual(Regras.diferencasDeConteudo(conflitos[0].atual, conflitos[0].importada),
+            [{ campo: "valor", atual: 400, arquivo: 450 }]);
+    });
+
+    it("mesmo conteúdo com outro id conta como igual uma vez para cada movimentação atual", () => {
+        const cafe = { tipo: TIPO.SAIDA, descricao: "Café", valor: 8, data: "2026-10-01" };
+        const { novas, iguais } = Regras.compararImportacao(atuais, [mov({ id: 50, ...cafe }), mov({ id: 51, ...cafe })]);
+        assert.deepEqual(ids(iguais), [50]);
+        assert.deepEqual(ids(novas), [51]);
+    });
+
+    it("incorpora sem apagar nada e, nos conflitos, mantém a atual ou usa a do arquivo", () => {
+        const importadas = [
+            mov({ id: 3, tipo: TIPO.SAIDA, descricao: "Mercado", valor: 450, data: "2026-10-03" }),
+            mov({ id: 9, descricao: "Freela", valor: 300 })
+        ];
+        const opcoes = { modo: Regras.MODO_IMPORTACAO.INCORPORAR, periodo: { inicio: "2026-10", fim: "2026-10" }, gerarId: (i) => i };
+
+        const mantendo = Regras.aplicarImportacao(atuais, importadas, opcoes);
+        assert.deepEqual(ids(mantendo.lista), [1, 2, 3, 9]);
+        assert.equal(mantendo.lista.find((m) => m.id === 3).valor, 400);
+        assert.equal(mantendo.adicionadas, 1);
+        assert.equal(mantendo.substituidas, 0);
+
+        const usandoArquivo = Regras.aplicarImportacao(atuais, importadas, { ...opcoes, usarArquivoNosConflitos: true });
+        assert.deepEqual(ids(usandoArquivo.lista), [1, 2, 3, 9]);
+        assert.equal(usandoArquivo.lista.find((m) => m.id === 3).valor, 450);
+        assert.equal(usandoArquivo.substituidas, 1);
+    });
+
+    it("desfaz o ajuste de saldo quando o arquivo daquele período volta inteiro", () => {
+        const original = [
+            mov({ id: 1, tipo: TIPO.ENTRADA, valor: 1000, data: "2025-01-05" }),
+            mov({ id: 2, tipo: TIPO.SAIDA, valor: 300, data: "2025-06-10" }),
+            mov({ id: 3, tipo: TIPO.SAIDA, valor: 50, data: "2026-02-01" })
+        ];
+        const ano2025 = { inicio: "2025-01", fim: "2025-12" };
+        const { restantes, removidas } = Regras.removerPeriodo(original, ano2025);
+        const { movimentacao: ajuste } = Regras.criarAjusteDeSaldo(removidas, ano2025, 99);
+        const depoisDeRemover = [...restantes, ajuste];
+
+        assert.deepEqual(ids(Regras.ajustesDesfeitos(depoisDeRemover, ano2025, ano2025)), [99]);
+        // Arquivo de outro período ou importação de só uma parte: o ajuste fica
+        assert.deepEqual(Regras.ajustesDesfeitos(depoisDeRemover, { inicio: "2025-01", fim: "2025-06" }, ano2025), []);
+        assert.deepEqual(Regras.ajustesDesfeitos(depoisDeRemover, ano2025, { inicio: "2025-03", fim: "2025-12" }), []);
+        assert.deepEqual(Regras.ajustesDesfeitos(depoisDeRemover, null, ano2025), []);
+
+        const resultado = Regras.aplicarImportacao(depoisDeRemover, removidas, {
+            modo: Regras.MODO_IMPORTACAO.INCORPORAR, periodo: ano2025, periodoDoArquivo: ano2025, gerarId: (i) => i
+        });
+        assert.deepEqual(ids(resultado.lista).sort(), [1, 2, 3]);
+        assert.equal(resultado.ajustesRemovidos, 1);
+        assert.equal(Regras.calcularResumo(resultado.lista).saldo, Regras.calcularResumo(original).saldo);
+    });
+
+    it("avisa dos ajustes que encostam no período e continuam (risco de contar em dobro)", () => {
+        const ajuste = { ...mov({ id: 99 }), ajuste: { inicio: "2025-01", fim: "2025-12", quantidade: 2 } };
+        assert.deepEqual(ids(Regras.ajustesSobrepostos([ajuste], { inicio: "2025-06", fim: "2025-06" })), [99]);
+        assert.deepEqual(Regras.ajustesSobrepostos([ajuste], { inicio: "2026-01", fim: "2026-03" }), []);
+        assert.deepEqual(Regras.ajustesSobrepostos([ajuste], { inicio: "2025-01", fim: "2025-12" }, [ajuste]), []);
+    });
+});
+
+describe("importar substituindo", () => {
+    const atuais = [
+        mov({ id: 1, data: "2026-09-10" }),
+        mov({ id: 2, data: "2026-10-05" }),
+        mov({ id: 3, data: "2026-10-20" })
+    ];
+    const outubro = { inicio: "2026-10", fim: "2026-10" };
+
+    it("substituir o período troca só as movimentações daquele período", () => {
+        const resultado = Regras.aplicarImportacao(atuais, [mov({ id: 7, data: "2026-10-15" })], {
+            modo: Regras.MODO_IMPORTACAO.SUBSTITUIR_PERIODO, periodo: outubro, gerarId: (i) => 500 + i
+        });
+        assert.deepEqual(ids(resultado.lista), [1, 7]);
+        assert.equal(resultado.removidas, 2);
+        assert.equal(resultado.adicionadas, 1);
+    });
+
+    it("um id que ainda existe fora do período ganha um id novo", () => {
+        const resultado = Regras.aplicarImportacao(atuais, [mov({ id: 1, data: "2026-10-15" })], {
+            modo: Regras.MODO_IMPORTACAO.SUBSTITUIR_PERIODO, periodo: outubro, gerarId: (i) => 500 + i
+        });
+        assert.deepEqual(ids(resultado.lista), [1, 500]);
+    });
+
+    it("substituir tudo fica só com o arquivo", () => {
+        const resultado = Regras.aplicarImportacao(atuais, [mov({ id: 7 })], {
+            modo: Regras.MODO_IMPORTACAO.SUBSTITUIR_TUDO, periodo: outubro, gerarId: (i) => i
+        });
+        assert.deepEqual(ids(resultado.lista), [7]);
+        assert.equal(resultado.removidas, 3);
+    });
+});
