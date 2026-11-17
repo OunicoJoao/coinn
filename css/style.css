@@ -2339,3 +2339,336 @@ button[type="submit"]:active {
         grid-template-columns: repeat(4, minmax(0, 1fr));
     }
 }
+
+/* ---------- Gerenciador de categorias ---------- */
+
+/* O painel abre embaixo dos botões "Selecionar" */
+.seletores-categoria {
+    position: relative;
+}
+
+.rotulo-campo {
+    display: block;
+    margin-bottom: 8px;
+    color: var(--texto-label);
+    font-weight: 500;
+}
+
+/* Botão com cara de campo: mostra a categoria escolhida ou "Selecionar" */
+.btn-seletor {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
+    width: 100%;
+    padding: 12px 14px 12px 16px;
+    border: 2px solid var(--borda);
+    border-radius: 8px;
+    background-color: var(--superficie);
+    color: var(--texto);
+    font-family: inherit;
+    font-size: 1rem;
+    text-align: left;
+    cursor: pointer;
+    transition: all 0.2s ease;
+}
+
+.btn-seletor-texto {
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.btn-seletor.vazio .btn-seletor-texto {
+    color: var(--texto-suave);
+}
+
+.btn-seletor .icone {
+    width: 18px;
+    height: 18px;
+    color: var(--texto-suave);
+    transition: transform 0.2s ease;
+}
+
+.btn-seletor:hover:not(:disabled) {
+    border-color: var(--borda-hover);
+}
+
+.btn-seletor:focus-visible,
+.btn-seletor[aria-expanded="true"] {
+    outline: none;
+    border-color: var(--foco-borda);
+    box-shadow: 0 0 0 3px var(--foco-anel);
+}
+
+.btn-seletor[aria-expanded="true"] .icone {
+    transform: rotate(180deg);
+}
+
+.btn-seletor:disabled {
+    opacity: 0.55;
+    cursor: not-allowed;
+}
+
+/* O painel, no estilo do menu de exportar/importar */
+.gerenciador {
+    position: absolute;
+    top: calc(100% - 12px);
+    left: 0;
+    z-index: 20;
+    width: min(360px, 100%);
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    padding: 12px;
+    background-color: var(--superficie);
+    border: 1px solid var(--borda);
+    border-radius: 12px;
+    box-shadow: var(--sombra-flutuante);
+    animation: abrirMenu 0.15s ease;
+}
+
+.gerenciador[hidden] {
+    display: none;
+}
+
+/* Subcategoria: o painel fica alinhado com o botão da direita */
+.gerenciador.a-direita {
+    left: auto;
+    right: 0;
+}
+
+.gerenciador-cabecalho {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    gap: 8px;
+}
+
+.gerenciador-titulos strong {
+    display: block;
+    color: var(--texto-forte);
+    font-weight: 600;
+}
+
+.gerenciador-titulos small {
+    display: block;
+    color: var(--texto-suave);
+    font-size: 0.8rem;
+}
+
+.gerenciador-fechar {
+    color: var(--texto-suave);
+    font-size: 1.3rem;
+}
+
+.gerenciador-fechar:hover,
+.gerenciador-fechar:focus-visible {
+    background-color: var(--destaque-fundo);
+    color: var(--texto-forte);
+    outline: none;
+}
+
+/* Criar: campo + botão */
+.gerenciador-nova {
+    display: flex;
+    gap: 8px;
+}
+
+.gerenciador input[type="text"] {
+    padding: 8px 12px;
+    font-size: 0.92rem;
+}
+
+.btn-criar-categoria {
+    flex-shrink: 0;
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    padding: 0 14px;
+    border: none;
+    border-radius: 8px;
+    background-color: var(--destaque);
+    color: var(--texto-sobre-destaque);
+    font-family: inherit;
+    font-size: 0.9rem;
+    font-weight: 500;
+    cursor: pointer;
+    transition: background-color 0.2s ease;
+}
+
+.btn-criar-categoria .icone {
+    width: 16px;
+    height: 16px;
+}
+
+.btn-criar-categoria:hover,
+.btn-criar-categoria:focus-visible {
+    background-color: var(--destaque-forte);
+    outline: none;
+    box-shadow: 0 0 0 3px var(--foco-anel);
+}
+
+.gerenciador-erro {
+    margin-top: -4px;
+    font-size: 0.84rem;
+    color: var(--perigo);
+}
+
+.gerenciador-lista {
+    list-style: none;
+    max-height: 260px;
+    overflow-y: auto;
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    margin: 0 -4px;
+    padding: 2px 4px;
+}
+
+.gerenciador-item {
+    display: flex;
+    align-items: center;
+    gap: 2px;
+    border-radius: 8px;
+}
+
+.gerenciador-item:hover,
+.gerenciador-item:focus-within {
+    background-color: var(--destaque-fundo);
+}
+
+/* Botão que escolhe a categoria: ocupa a linha toda */
+.gerenciador-escolher {
+    flex: 1;
+    min-width: 0;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 8px;
+    border: none;
+    border-radius: 8px;
+    background: none;
+    color: var(--texto-forte);
+    font-family: inherit;
+    font-size: 0.92rem;
+    text-align: left;
+    cursor: pointer;
+}
+
+.gerenciador-escolher:focus-visible {
+    outline: none;
+    box-shadow: inset 0 0 0 2px var(--foco-borda);
+}
+
+.gerenciador-escolher .icone {
+    width: 16px;
+    height: 16px;
+    stroke-width: 3;
+    color: transparent;
+}
+
+.gerenciador-item.escolhido .gerenciador-escolher {
+    font-weight: 600;
+}
+
+.gerenciador-item.escolhido .gerenciador-escolher .icone {
+    color: var(--cor-selecao);
+}
+
+.gerenciador-nome {
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.gerenciador-uso {
+    margin-left: auto;
+    flex-shrink: 0;
+    font-size: 0.76rem;
+    font-weight: 400;
+    color: var(--texto-suave);
+}
+
+.gerenciador-item.nenhuma .gerenciador-nome {
+    color: var(--texto-suave);
+    font-style: italic;
+}
+
+/* Renomear: o nome vira um campo, com salvar (✓) e cancelar */
+.gerenciador-item.renomeando {
+    padding: 4px;
+    background-color: var(--destaque-fundo);
+}
+
+.gerenciador-item.renomeando input {
+    flex: 1;
+    min-width: 0;
+}
+
+.gerenciador-item .btn-salvar-nome {
+    color: var(--cor-entrada);
+    font-size: 1.1rem;
+}
+
+.gerenciador-item .btn-salvar-nome:hover,
+.gerenciador-item .btn-salvar-nome:focus-visible {
+    background-color: var(--entrada-fundo);
+    outline: none;
+}
+
+.gerenciador-item .btn-cancelar-nome {
+    color: var(--texto-suave);
+    font-size: 1.1rem;
+}
+
+.gerenciador-item .btn-cancelar-nome:hover,
+.gerenciador-item .btn-cancelar-nome:focus-visible {
+    background-color: var(--superficie);
+    color: var(--texto-forte);
+    outline: none;
+}
+
+/* ✎ e × aparecem ao passar o mouse (ou focar), como nos itens do histórico */
+@media (hover: hover) {
+    .gerenciador-item:not(.renomeando) .btn-acao {
+        opacity: 0;
+    }
+
+    .gerenciador-item:hover .btn-acao,
+    .gerenciador-item:focus-within .btn-acao {
+        opacity: 1;
+    }
+}
+
+.gerenciador-vazio {
+    padding: 8px 4px;
+    font-size: 0.86rem;
+    color: var(--texto-suave);
+}
+
+@media (max-width: 480px) {
+    .gerenciador,
+    .gerenciador.a-direita {
+        left: 0;
+        right: 0;
+        width: auto;
+    }
+
+    /* No celular o painel é estreito: "48 movimentações" vai para a linha de baixo do nome */
+    .gerenciador-escolher {
+        flex-wrap: wrap;
+        row-gap: 0;
+    }
+
+    .gerenciador-nome {
+        flex: 1;
+    }
+
+    .gerenciador-uso {
+        flex-basis: 100%;
+        margin-left: 24px;
+    }
+}

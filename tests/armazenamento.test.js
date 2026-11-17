@@ -126,3 +126,28 @@ describe("Armazenamento: espaço usado", () => {
         assert.equal(Armazenamento.tamanhoDasMovimentacoes(), 0);
     });
 });
+
+describe("Armazenamento: categorias cadastradas", () => {
+    beforeEach(() => {
+        globalThis.localStorage = criarLocalStorageFalso();
+    });
+
+    it("salva e carrega as categorias; sem nada salvo, lista vazia", () => {
+        assert.deepEqual(Armazenamento.carregarCategorias(), []);
+        const categorias = [{ id: 1, nome: "Casa", subcategorias: [{ id: 2, nome: "Luz" }] }];
+        assert.equal(Armazenamento.salvarCategorias(categorias), true);
+        assert.deepEqual(Armazenamento.carregarCategorias(), categorias);
+    });
+
+    it("conteúdo inválido vira lista vazia", () => {
+        localStorage.setItem("coinn.categorias", "{quebrado");
+        assert.deepEqual(semConsoleError(() => Armazenamento.carregarCategorias()), []);
+    });
+
+    it("limpar tudo apaga as movimentações, mas não as categorias", () => {
+        Armazenamento.salvarCategorias([{ id: 1, nome: "Casa", subcategorias: [] }]);
+        Armazenamento.salvarMovimentacoes([{ id: 1 }]);
+        Armazenamento.removerTodasMovimentacoes();
+        assert.equal(Armazenamento.carregarCategorias().length, 1);
+    });
+});

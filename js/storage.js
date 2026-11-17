@@ -21,6 +21,9 @@ const Armazenamento = (function () {
     // Chave única do projeto, para não colidir com outros apps no mesmo navegador
     const CHAVE_MOVIMENTACOES = "coinn.movimentacoes";
 
+    // Categorias e subcategorias cadastradas no gerenciador de categorias
+    const CHAVE_CATEGORIAS = "coinn.categorias";
+
     // Preferência do botão "olho" (mostrar/ocultar valores)
     const CHAVE_VALORES_VISIVEIS = "coinn.valoresVisiveis";
 
@@ -68,6 +71,32 @@ const Armazenamento = (function () {
             return true;
         } catch (erro) {
             console.error("Coinn: não foi possível apagar os dados.", erro);
+            return false;
+        }
+    }
+
+    // Retorna as categorias cadastradas (como foram salvas), ou uma lista vazia.
+    // Quem usa confere o conteúdo com Regras.lerCategorias.
+    function carregarCategorias() {
+        try {
+            const dados = localStorage.getItem(CHAVE_CATEGORIAS);
+            if (!dados) return [];
+            const lista = JSON.parse(dados);
+            return Array.isArray(lista) ? lista : [];
+        } catch (erro) {
+            console.error("Coinn: não foi possível ler as categorias.", erro);
+            return [];
+        }
+    }
+
+    // Grava as categorias cadastradas; retorna true se deu certo.
+    // O "Limpar tudo" não apaga as categorias.
+    function salvarCategorias(lista) {
+        try {
+            localStorage.setItem(CHAVE_CATEGORIAS, JSON.stringify(lista));
+            return true;
+        } catch (erro) {
+            console.error("Coinn: não foi possível salvar as categorias.", erro);
             return false;
         }
     }
@@ -126,6 +155,8 @@ const Armazenamento = (function () {
         salvarMovimentacoes,
         removerTodasMovimentacoes,
         tamanhoDasMovimentacoes,
+        carregarCategorias,
+        salvarCategorias,
         carregarValoresVisiveis,
         salvarValoresVisiveis,
         carregarTema,
