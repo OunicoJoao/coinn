@@ -792,6 +792,74 @@ describe("importar substituindo", () => {
     });
 });
 
+describe("recorrência (Repetir todo mês)", () => {
+    const dados = { tipo: TIPO.SAIDA, valor: 100.5, data: "2026-01-31", descricao: "Academia", categoria: "Saúde", subcategoria: "" };
+
+    it("valida quantas vezes repete (2 a 120, inteiro)", () => {
+        assert.equal(Regras.validarRepeticoes(2), null);
+        assert.equal(Regras.validarRepeticoes(120), null);
+        [1, 121, 2.5, NaN].forEach((n) => assert.match(Regras.validarRepeticoes(n), /de 2 a 120/));
+    });
+
+    it("cria uma por mês, no mesmo dia; sem o dia no mês, usa o último dia", () => {
+        const serie = Regras.criarMovimentacoes(dados, 1000, 5);
+        assert.deepEqual(serie.map((m) => m.data), ["2026-01-31", "2026-02-28", "2026-03-31", "2026-04-30", "2026-05-31"]);
+        assert.deepEqual(ids(serie), [1000, 1001, 1002, 1003, 1004]);
+        assert.deepEqual(serie[2].recorrencia, { grupo: 1000, parcela: 3, total: 5 });
+        assert.ok(serie.every((m) => m.valor === 100.5 && m.descricao === "Academia" && m.categoria === "Saúde"));
+        assert.equal(Regras.rotuloParcela(serie[2]), "3/5");
+    });
+
+    it("ano bissexto e virada de ano", () => {
+        const serie = Regras.criarMovimentacoes({ ...dados, data: "2027-12-29" }, 1, 3);
+        assert.deepEqual(serie.map((m) => m.data), ["2027-12-29", "2028-01-29", "2028-02-29"]);
+    });
+
+    it("sem repetir, cria uma só e sem o campo recorrencia", () => {
+        const [unica] = Regras.criarMovimentacoes(dados, 7);
+        assert.equal(unica.id, 7);
+        assert.equal("recorrencia" in unica, false);
+        assert.equal(Regras.rotuloParcela(unica), "");
+    });
+
+    it("resume o que vai ser criado", () => {
+        assert.deepEqual(Regras.resumirRecorrencia("2026-01-31", 100.5, 12), {
+            dia: 31, primeira: "2026-01-31", ultima: "2026-12-31", total: 1206, ajustaFimDoMes: true
+        });
+        assert.equal(Regras.resumirRecorrencia("2026-11-15", 10, 2).ajustaFimDoMes, false);
+    });
+
+    it("próximas da série: só as parcelas depois desta", () => {
+        const serie = Regras.criarMovimentacoes(dados, 1000, 4);
+        const lista = [...serie, mov({ id: 5 })];
+        assert.deepEqual(ids(Regras.proximasDaSerie(lista, 1001)), [1002, 1003]);
+        assert.deepEqual(Regras.proximasDaSerie(lista, 1003), []);
+        assert.deepEqual(Regras.proximasDaSerie(lista, 5), []);
+    });
+
+    it("editar esta e as próximas: muda os dados e, se o dia mudou, o dia de cada mês", () => {
+        const serie = Regras.criarMovimentacoes(dados, 1000, 4);
+        const editada = Regras.editarSerie(serie, 1001,
+            { ...dados, valor: 80, descricao: "Pilates", data: "2026-02-10" }, "2026-11-15T12:00:00Z");
+        assert.deepEqual(editada.map((m) => m.valor), [100.5, 80, 80, 80]);
+        assert.deepEqual(editada.map((m) => m.descricao), ["Academia", "Pilates", "Pilates", "Pilates"]);
+        assert.deepEqual(editada.map((m) => m.data), ["2026-01-31", "2026-02-10", "2026-03-10", "2026-04-10"]);
+        assert.deepEqual(editada[3].recorrencia, { grupo: 1000, parcela: 4, total: 4 });
+        assert.equal(editada[0].dataModificacao, undefined);
+    });
+
+    it("excluir esta e as próximas: as anteriores ficam", () => {
+        const serie = Regras.criarMovimentacoes(dados, 1000, 4);
+        assert.deepEqual(ids(Regras.excluirSerie(serie, 1002)), [1000, 1001]);
+    });
+
+    it("recorrência inválida salva é descartada; a importação mantém a válida", () => {
+        assert.equal("recorrencia" in Regras.normalizarMovimentacao(mov({ recorrencia: { grupo: 1, parcela: 3, total: 2 } })), false);
+        const lido = Regras.lerMovimentacoesImportadas([mov({ recorrencia: { grupo: 1, parcela: 2, total: 3 } })], (i) => i);
+        assert.deepEqual(lido.lista[0].recorrencia, { grupo: 1, parcela: 2, total: 3 });
+    });
+});
+
 describe("filtro Quando (só futuras)", () => {
     const lista = [
         mov({ id: 1, data: "2026-11-10" }),

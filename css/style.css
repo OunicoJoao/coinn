@@ -883,6 +883,27 @@ h2 {
     color: var(--futura-selo-texto);
 }
 
+/* "3/12": parcela de uma movimentação que se repete todo mês */
+.selo-parcela {
+    display: inline-flex;
+    align-items: center;
+    gap: 3px;
+    padding: 0 7px;
+    border: 1px solid var(--borda-hover);
+    border-radius: 999px;
+    font-size: 0.72rem;
+    font-weight: 500;
+    line-height: 1.5;
+    color: var(--texto-suave);
+    white-space: nowrap;
+    vertical-align: middle;
+}
+
+.selo-parcela .icone {
+    width: 11px;
+    height: 11px;
+}
+
 /* Fim da lista: "Carregar mais 30" */
 .carregar-mais {
     display: flex;
@@ -2340,6 +2361,17 @@ button[type="submit"]:active {
     }
 }
 
+/* Texto só para leitores de tela */
+.visualmente-oculto {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    margin: -1px;
+    overflow: hidden;
+    clip: rect(0 0 0 0);
+    white-space: nowrap;
+}
+
 /* ---------- Gerenciador de categorias ---------- */
 
 /* O painel abre embaixo dos botões "Selecionar" */
@@ -2647,6 +2679,82 @@ button[type="submit"]:active {
     padding: 8px 4px;
     font-size: 0.86rem;
     color: var(--texto-suave);
+}
+
+/* ---------- Recorrência ("Repetir todo mês") ---------- */
+
+.form-opcoes {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    margin-bottom: 20px;
+}
+
+.form-opcoes[hidden] {
+    display: none;
+}
+
+.recorrencia-opcoes {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    padding-left: 16px;
+    border-left: 3px solid var(--destaque);
+}
+
+.recorrencia-opcoes[hidden] {
+    display: none;
+}
+
+.recorrencia-opcoes .form-grupo {
+    margin-bottom: 0;
+    max-width: 300px;
+}
+
+.previa-recorrencia {
+    font-size: 0.85rem;
+    color: var(--texto);
+}
+
+.previa-recorrencia:empty {
+    display: none;
+}
+
+.previa-recorrencia .linha-texto {
+    display: block;
+}
+
+.previa-recorrencia .linha-texto + .linha-texto {
+    color: var(--texto-suave);
+}
+
+/* "Parcela 3 de 12": aparece ao editar uma movimentação recorrente */
+.info-serie {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin: -8px 0 16px;
+    font-size: 0.88rem;
+    color: var(--texto-suave);
+}
+
+.info-serie[hidden] {
+    display: none;
+}
+
+.info-serie .icone {
+    width: 16px;
+    height: 16px;
+}
+
+/* Diálogo "só esta ou esta e as próximas" */
+.dialogo-pequeno {
+    width: min(440px, calc(100% - 24px));
+}
+
+.dialogo-botoes button[type="submit"].perigo {
+    background: var(--perigo-botao);
+    color: #FFF;
 }
 
 @media (max-width: 480px) {

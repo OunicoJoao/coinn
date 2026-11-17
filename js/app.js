@@ -4,6 +4,9 @@
  * ver histórico (#19), editar e excluir (#20), categorias e subcategorias, filtros e limpar tudo,
  * movimentações futuras (saldo atual x previsto), visão Geral / Mensal (com filtro De/Até
  * no histórico) e seleção de várias movimentações para excluir de uma vez.
+ * Gerenciador de categorias (botões "Selecionar": escolher, criar, renomear e excluir),
+ * "Repetir todo mês" (movimentações recorrentes), filtro "Quando" (só futuras) na visão geral
+ * e histórico de 30 em 30 ("Carregar mais").
  * Aba Relatórios: números do período, gráficos de entradas, saídas e saldo por mês,
  * categorias, destaques, tabela mês a mês, planilha CSV e impressão.
  * Na barra do topo: mostrar/ocultar valores, modo claro/noturno e exportar/importar os dados (#21):
@@ -28,6 +31,7 @@ const TAMANHO_PAGINA = 30;
 // Ícones pequenos (traços de um SVG 24x24)
 const ICONE = Object.freeze({
     check: ["M5 12l5 5 9-10"],
+    repetir: ["M17 2l4 4-4 4", "M3 11V9a3 3 0 0 1 3-3h15", "M7 22l-4-4 4-4", "M21 13v2a3 3 0 0 1-3 3H3"],
     seta: ["M12 5v14", "M6 13l6 6 6-6"]
 });
 
@@ -135,6 +139,20 @@ const gerenciadorErroEl = document.getElementById("gerenciador-erro");
 const gerenciadorListaEl = document.getElementById("gerenciador-lista");
 const gerenciadorVazioEl = document.getElementById("gerenciador-vazio");
 
+// Recorrência ("Repetir todo mês")
+const infoSerieEl = document.getElementById("info-serie");
+const opcaoRepetirGrupoEl = document.getElementById("opcao-repetir-grupo");
+const repetirEl = document.getElementById("repetir");
+const recorrenciaOpcoesEl = document.getElementById("recorrencia-opcoes");
+const repeticoesEl = document.getElementById("repeticoes");
+const previaRecorrenciaEl = document.getElementById("previa-recorrencia");
+const dialogoSerieEl = document.getElementById("dialogo-serie");
+const formSerieEl = document.getElementById("form-serie");
+const tituloSerieEl = document.getElementById("titulo-serie");
+const serieTextoEl = document.getElementById("serie-texto");
+const serieUmaTextoEl = document.getElementById("serie-uma-texto");
+const serieTodasTextoEl = document.getElementById("serie-todas-texto");
+const btnConfirmarSerieEl = document.getElementById("btn-confirmar-serie");
 const erroEl = document.getElementById("mensagem-erro");
 const btnRegistrarEl = document.getElementById("btn-registrar");
 const btnCancelarEdicaoEl = document.getElementById("btn-cancelar-edicao");
@@ -255,13 +273,21 @@ let importacao = null;
 
 descricaoEl.maxLength = LIMITES.DESCRICAO_MAX;
 novaCategoriaEl.maxLength = LIMITES.CATEGORIA_MAX;
+repeticoesEl.min = LIMITES.REPETICOES_MIN;
+repeticoesEl.max = LIMITES.REPETICOES_MAX;
 valorEl.min = LIMITES.VALOR_MIN;
 valorEl.max = LIMITES.VALOR_MAX;
 dataEl.value = hoje();
 
 formEl.addEventListener("submit", registrarMovimentacao);
 descricaoEl.addEventListener("input", atualizarContador);
-dataEl.addEventListener("input", atualizarAvisoDataFutura);
+dataEl.addEventListener("input", () => {
+    atualizarAvisoDataFutura();
+    atualizarPreviaRecorrencia();
+});
+valorEl.addEventListener("input", atualizarPreviaRecorrencia);
+repetirEl.addEventListener("change", atualizarOpcoesRecorrencia);
+repeticoesEl.addEventListener("input", atualizarPreviaRecorrencia);
 btnCancelarEdicaoEl.addEventListener("click", cancelarEdicao);
 btnLimparTudoEl.addEventListener("click", limparTudo);
 
@@ -368,14 +394,18 @@ aplicarVisibilidade();
 aplicarTema();
 atualizarContador();
 atualizarSeletoresCategoria();
+atualizarOpcoesRecorrencia();
 atualizarTela();
 
 // ---------- #17 Registrar movimentação (e salvar edição) ----------
 
-function registrarMovimentacao(evento) {
+async function registrarMovimentacao(evento) {
     evento.preventDefault(); // evita recarregar a página
 
-    const erro = Regras.validarMovimentacao(lerFormulario());
+    const criandoSerie = idEmEdicao === null && repetirEl.checked;
+    const repeticoes = criandoSerie ? Number(repeticoesEl.value) : 1;
+    const erro = Regras.validarMovimentacao(lerFormulario())
+        || (criandoSerie ? Regras.validarRepeticoes(repeticoes) : null);
     if (erro) {
         mostrarErro(erro);
         return;
@@ -384,18 +414,61 @@ function registrarMovimentacao(evento) {
     // Se já existe "Alimentação" e a categoria veio como "alimentação", usa a grafia que já existe
     const dados = Regras.aplicarGrafiaExistente(movimentacoes, lerFormulario());
 
-    const novaLista = idEmEdicao !== null
-        ? Regras.editarMovimentacao(movimentacoes, idEmEdicao, dados, new Date().toISOString())
-        : Regras.adicionarMovimentacao(movimentacoes, dados, Date.now());
+    if (idEmEdicao !== null) {
+        await salvarEdicao(dados);
+        return;
+    }
 
-    if (!Armazenamento.salvarMovimentacoes(novaLista)) {
+    const novas = Regras.criarMovimentacoes(dados, novoId(), repeticoes);
+    if (!salvar(Regras.adicionarMovimentacoes(movimentacoes, novas))) {
         mostrarErro("Não foi possível salvar. Verifique se o navegador permite armazenamento local.");
         return;
     }
 
-    movimentacoes = novaLista;
     sairModoEdicao();
     atualizarTela();
+    if (repeticoes > 1) {
+        mostrarAviso(`${repeticoes} movimentações registradas, uma por mês, até ${Regras.formatarData(novas[novas.length - 1].data)}.`);
+    }
+}
+
+// Salva a edição. Numa movimentação recorrente com parcelas seguintes, pergunta se a
+// mudança vale só para esta parcela ou para esta e as próximas.
+async function salvarEdicao(dados) {
+    const id = idEmEdicao;
+    const atual = movimentacoes.find((mov) => mov.id === id);
+    if (!atual) {
+        sairModoEdicao();
+        return;
+    }
+
+    let escopo = "uma";
+    const proximas = Regras.proximasDaSerie(movimentacoes, id);
+    if (proximas.length > 0) {
+        escopo = await perguntarEscopoDaSerie("editar", atual, proximas);
+        if (!escopo) return;
+    }
+
+    const quando = new Date().toISOString();
+    const novaLista = escopo === "serie"
+        ? Regras.editarSerie(movimentacoes, id, dados, quando)
+        : Regras.editarMovimentacao(movimentacoes, id, dados, quando);
+    if (!salvar(novaLista)) {
+        mostrarErro("Não foi possível salvar. Verifique se o navegador permite armazenamento local.");
+        return;
+    }
+
+    sairModoEdicao();
+    atualizarTela();
+    if (escopo === "serie") {
+        mostrarAviso(`Alterações salvas nesta e em mais ${proximas.length} ${proximas.length === 1 ? "parcela" : "parcelas"}.`);
+    }
+}
+
+// Um id que ainda não existe; numa série, os ids seguintes também ficam livres
+function novoId() {
+    const maior = movimentacoes.reduce((maximo, mov) => Math.max(maximo, mov.id), 0);
+    return Math.max(Date.now(), maior + 1);
 }
 
 function lerFormulario() {
@@ -416,11 +489,95 @@ function limparFormulario() {
     categoriaEl.value = "";
     subcategoriaEl.value = "";
     dataEl.value = hoje();
+    repeticoesEl.value = "12";
     esconderErro();
     atualizarContador();
     atualizarSeletoresCategoria();
+    atualizarOpcoesRecorrencia();
     atualizarAvisoDataFutura();
     descricaoEl.focus();
+}
+
+// ---------- Recorrência ("Repetir todo mês") ----------
+
+// A opção só aparece ao registrar uma movimentação nova
+function atualizarOpcoesRecorrencia() {
+    const editando = idEmEdicao !== null;
+    opcaoRepetirGrupoEl.hidden = editando;
+    recorrenciaOpcoesEl.hidden = editando || !repetirEl.checked;
+    atualizarPreviaRecorrencia();
+}
+
+// "12 movimentações de R$ 100,00, todo dia 10" / "De 10/11/2026 a 10/10/2027 · Total: R$ 1.200,00"
+function atualizarPreviaRecorrencia() {
+    if (recorrenciaOpcoesEl.hidden) return;
+
+    const repeticoes = Number(repeticoesEl.value);
+    const valor = Number(valorEl.value);
+    if (!Regras.dataValida(dataEl.value) || Regras.validarRepeticoes(repeticoes)) {
+        previaRecorrenciaEl.replaceChildren(criarLinhaDeTexto([
+            `De ${LIMITES.REPETICOES_MIN} a ${LIMITES.REPETICOES_MAX} vezes, contando a primeira.`
+        ]));
+        return;
+    }
+
+    const resumo = Regras.resumirRecorrencia(dataEl.value, valor > 0 ? valor : 0, repeticoes);
+    const linhas = [
+        criarLinhaDeTexto([
+            valor > 0
+                ? `${repeticoes} movimentações de ${exibirValor(Regras.arredondarCentavos(valor))}`
+                : `${repeticoes} movimentações`,
+            `todo dia ${resumo.dia}`
+        ]),
+        criarLinhaDeTexto([
+            `De ${Regras.formatarData(resumo.primeira)} a ${Regras.formatarData(resumo.ultima)}`,
+            ...(valor > 0 ? [`Total: ${exibirValor(resumo.total)}`] : [])
+        ])
+    ];
+    if (resumo.ajustaFimDoMes) {
+        linhas.push(criarLinhaDeTexto([`Nos meses sem dia ${resumo.dia}, fica no último dia do mês.`]));
+    }
+    previaRecorrenciaEl.replaceChildren(...linhas);
+}
+
+// Abre o diálogo e espera a resposta: o que "lerResposta" devolver ao confirmar,
+// ou null se a pessoa cancelar (botão Cancelar, Esc)
+function esperarResposta(dialogo, form, lerResposta) {
+    return new Promise((resolver) => {
+        let resposta = null;
+        const aoConfirmar = (evento) => {
+            evento.preventDefault();
+            resposta = lerResposta();
+            dialogo.close();
+        };
+        form.addEventListener("submit", aoConfirmar);
+        dialogo.addEventListener("close", () => {
+            form.removeEventListener("submit", aoConfirmar);
+            resolver(resposta);
+        }, { once: true });
+        dialogo.showModal();
+    });
+}
+
+// acao: "editar" ou "excluir". Devolve "uma", "serie" ou null (cancelou).
+function perguntarEscopoDaSerie(acao, mov, proximas) {
+    const { parcela, total } = mov.recorrencia;
+    const ultima = proximas.reduce((maior, item) => (item.data > maior.data ? item : maior), proximas[0]);
+    const excluir = acao === "excluir";
+
+    tituloSerieEl.textContent = excluir ? "Excluir movimentação recorrente" : "Salvar movimentação recorrente";
+    serieTextoEl.textContent = `"${mov.descricao}" é a parcela ${parcela} de ${total}. `
+        + `${excluir ? "O que excluir?" : "Onde aplicar as alterações?"}`;
+    serieUmaTextoEl.textContent = `${excluir ? "Exclui" : "Muda"} só a de ${Regras.formatarData(mov.data)}.`;
+    serieTodasTextoEl.textContent = `${excluir ? "Exclui" : "Muda"} esta e mais `
+        + `${proximas.length} ${proximas.length === 1 ? "parcela" : "parcelas"}, até ${Regras.formatarData(ultima.data)}. `
+        + "As anteriores não mudam.";
+    btnConfirmarSerieEl.textContent = excluir ? "Excluir" : "Salvar";
+    btnConfirmarSerieEl.classList.toggle("perigo", excluir);
+    formSerieEl.querySelector('input[name="escopo-serie"][value="uma"]').checked = true;
+
+    return esperarResposta(dialogoSerieEl, formSerieEl,
+        () => formSerieEl.querySelector('input[name="escopo-serie"]:checked').value);
 }
 
 // Avisa, embaixo do campo de data, quando a data escolhida é futura
@@ -444,6 +601,15 @@ function iniciarEdicao(id) {
     descricaoEl.value = mov.descricao;
     categoriaEl.value = mov.categoria;
     subcategoriaEl.value = mov.subcategoria;
+    repetirEl.checked = false;
+
+    if (mov.recorrencia) {
+        infoSerieEl.replaceChildren(
+            criarIcone(ICONE.repetir),
+            `Parcela ${mov.recorrencia.parcela} de ${mov.recorrencia.total} de uma movimentação recorrente`
+        );
+    }
+    infoSerieEl.hidden = !mov.recorrencia;
 
     tituloFormEl.textContent = "Editar movimentação";
     btnRegistrarEl.textContent = "Salvar alterações";
@@ -454,6 +620,7 @@ function iniciarEdicao(id) {
     atualizarContador();
     fecharGerenciador();
     atualizarSeletoresCategoria();
+    atualizarOpcoesRecorrencia();
     atualizarAvisoDataFutura();
     destacarItemEmEdicao();
 
@@ -472,6 +639,7 @@ function sairModoEdicao() {
     tituloFormEl.textContent = "Nova movimentação";
     btnRegistrarEl.textContent = "Registrar";
     btnCancelarEdicaoEl.hidden = true;
+    infoSerieEl.hidden = true;
     formContainerEl.classList.remove("editando");
     destacarItemEmEdicao();
     limparFormulario();
@@ -487,28 +655,39 @@ function destacarItemEmEdicao() {
 
 // ---------- #20 Excluir movimentação ----------
 
-function excluirMovimentacao(id) {
+async function excluirMovimentacao(id) {
     const mov = movimentacoes.find((m) => m.id === id);
     if (!mov) return;
 
-    const confirmou = confirm(`Excluir "${mov.descricao}" (${Regras.formatarData(mov.data)})?`);
-    if (!confirmou) return;
+    // Recorrente com parcelas seguintes: só esta ou esta e as próximas?
+    const proximas = Regras.proximasDaSerie(movimentacoes, id);
+    let escopo = "uma";
+    if (proximas.length > 0) {
+        escopo = await perguntarEscopoDaSerie("excluir", mov, proximas);
+        if (!escopo) return;
+    } else {
+        const confirmou = confirm(`Excluir "${mov.descricao}" (${Regras.formatarData(mov.data)})?`);
+        if (!confirmou) return;
+    }
 
-    const novaLista = Regras.excluirMovimentacao(movimentacoes, id);
+    const removidas = new Set(escopo === "serie" ? [id, ...proximas.map((item) => item.id)] : [id]);
+    const novaLista = escopo === "serie"
+        ? Regras.excluirSerie(movimentacoes, id)
+        : Regras.excluirMovimentacao(movimentacoes, id);
 
-    if (!Armazenamento.salvarMovimentacoes(novaLista)) {
+    if (!salvar(novaLista)) {
         mostrarErro("Não foi possível excluir. Verifique se o navegador permite armazenamento local.");
         return;
     }
 
-    movimentacoes = novaLista;
-
     // Se a movimentação excluída estava aberta no formulário, sai da edição
-    if (idEmEdicao === id) {
+    if (idEmEdicao !== null && removidas.has(idEmEdicao)) {
         sairModoEdicao();
     }
+    removidas.forEach((removida) => selecionadas.delete(removida));
 
     atualizarTela();
+    if (removidas.size > 1) mostrarAviso(`${removidas.size} parcelas excluídas.`);
 }
 
 // ---------- Gerenciador de categorias ----------
@@ -1357,6 +1536,15 @@ function criarItemHistorico(mov) {
     const detalhe = document.createElement("span");
     detalhe.classList.add("movimentacao-data");
     detalhe.textContent = `${Regras.formatarData(mov.data)} · ${ehEntrada ? "Entrada" : "Saída"}`;
+
+    // Selo "3/12": parcela de uma movimentação recorrente
+    if (mov.recorrencia) {
+        const selo = document.createElement("span");
+        selo.classList.add("selo-parcela");
+        selo.title = `Parcela ${mov.recorrencia.parcela} de ${mov.recorrencia.total} (repete todo mês)`;
+        selo.append(criarIcone(ICONE.repetir), Regras.rotuloParcela(mov));
+        detalhe.append(" · ", selo);
+    }
 
     // Selo "Futura": ainda não conta no saldo atual
     if (futura) {
