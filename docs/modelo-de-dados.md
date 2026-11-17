@@ -1,9 +1,9 @@
 # Modelo de Dados
 
 > Atualizado na Sprint 4: novos campos `categoria`, `subcategoria` e `dataModificacao`.
-> Atualizado com os relatórios e o exportar/importar por período: campo `ajuste`, arquivo de exportação v3 e dados dos relatórios.
+> Atualizado com os relatórios e o exportar/importar por período (campo `ajuste`, arquivo de exportação v3 e dados dos relatórios) e com a versão 1.3.0: gerenciador de categorias (`coinn.categorias`), recorrência (campo `recorrencia`), futuras em amarelo, filtro "Quando" e histórico de 30 em 30.
 
-O Coinn não usa banco de dados. As movimentações ficam em uma lista em formato JSON, salva no **localStorage** do navegador na chave `coinn.movimentacoes` (ADR 01). A preferência de mostrar ou ocultar valores fica em outra chave, `coinn.valoresVisiveis`, e o tema escolhido (`"claro"` ou `"escuro"`) fica em `coinn.tema`. "Limpar tudo" apaga só as movimentações; as preferências continuam.
+O Coinn não usa banco de dados. As movimentações ficam em uma lista em formato JSON, salva no **localStorage** do navegador na chave `coinn.movimentacoes` (ADR 01). As categorias cadastradas no gerenciador ficam em `coinn.categorias`. A preferência de mostrar ou ocultar valores fica em outra chave, `coinn.valoresVisiveis`, e o tema escolhido (`"claro"` ou `"escuro"`) fica em `coinn.tema`. "Limpar tudo" apaga só as movimentações; as categorias e as preferências continuam.
 
 ## Entidade: Movimentação
 
@@ -18,6 +18,7 @@ O Coinn não usa banco de dados. As movimentações ficam em uma lista em format
 | `subcategoria` | texto | não | Texto livre, até 20 caracteres; `""` quando não informada. Só pode existir se houver categoria |
 | `dataModificacao` | texto | não | Data e hora (ISO 8601) da última edição; só existe em movimentações editadas |
 | `ajuste` | objeto | não | `{ inicio, fim, quantidade }`: só existe no **Ajuste de saldo** (veja abaixo) |
+| `recorrencia` | objeto | não | `{ grupo, parcela, total }`: só existe nas movimentações criadas com **Repetir todo mês** (veja abaixo) |
 
 Exemplo:
 
@@ -35,8 +36,18 @@ Exemplo:
 
 ### Categorias e subcategorias
 
-- **Não há lista fixa.** O usuário digita a categoria e a subcategoria que quiser, e o formulário sugere as que ele já usou. As sugestões de subcategoria são só as da categoria digitada.
-- **Grafia única:** se já existe "Alimentação" e o usuário digita "alimentação", a movimentação é salva como "Alimentação". Isso evita categorias repetidas no filtro. A subcategoria segue a mesma regra, dentro da categoria.
+- **Gerenciador de categorias**: no formulário, os botões **Selecionar** abrem um painel para escolher, criar, renomear e excluir. As categorias cadastradas ficam na chave `coinn.categorias`:
+
+  ```json
+  [{ "id": 1, "nome": "Alimentação", "subcategorias": [{ "id": 2, "nome": "Mercado" }] }]
+  ```
+
+  Os ids são únicos nos dois níveis. A movimentação continua guardando o **nome** da categoria e da subcategoria (por isso o arquivo exportado não mudou).
+- **Nomes:** de 1 a 20 caracteres, sem repetir no mesmo nível, sem diferenciar maiúsculas de minúsculas (`Regras.validarNomeCategoria`). "Mercado" pode existir em duas categorias diferentes.
+- **Renomear** troca o nome no cadastro e em todas as movimentações que usavam o nome antigo (`Regras.renomearCategoria`).
+- **Excluir** uma categoria exclui também as subcategorias dela; as movimentações que a usavam ficam **sem categoria** (não são apagadas). Excluir uma subcategoria deixa as movimentações **sem subcategoria** (`Regras.excluirCategoria`).
+- **Cadastro automático:** toda categoria usada nas movimentações (dados antigos, importação) entra no cadastro sozinha (`Regras.sincronizarCategorias`).
+- **Grafia única:** se já existe "Alimentação" e chega "alimentação", a movimentação é salva como "Alimentação". A subcategoria segue a mesma regra, dentro da categoria.
 - **Hierarquia de dois níveis:** a subcategoria pertence à categoria. "Mercado" dentro de "Alimentação" é diferente de "Mercado" dentro de outra categoria.
 
 Movimentações registradas antes da Sprint 4 não têm os campos `categoria` e `subcategoria`. Não foi preciso migrar os dados: ao carregar, o código preenche os campos com `""` (`Regras.normalizarMovimentacao`), e essas movimentações aparecem no filtro como **"Sem categoria"**.
@@ -50,6 +61,26 @@ Não existe um campo novo: **a data decide**. Uma movimentação com `data` depo
 - Quando o dia da data chega, a movimentação passa a contar no saldo atual sozinha, sem precisar editar nada.
 
 Efeito em dados antigos: se alguém já tinha registrado uma movimentação com data futura, ela deixa de contar no saldo atual (passa a contar só no previsto).
+
+No histórico, as futuras aparecem em **amarelo** (barra, fundo e selo "Futura"); o valor continua verde ou vermelho, para mostrar se é entrada ou saída. Na visão Geral, o filtro **Quando** mostra só as futuras (`quando: "futuras"`, da mais próxima para a mais distante) ou só as que já aconteceram (`"realizadas"`).
+
+### Recorrência ("Repetir todo mês")
+
+`Regras.criarMovimentacoes` cria uma movimentação por mês a partir da data escolhida:
+
+- Mesmo dia em todos os meses. Se o mês não tem esse dia, fica no **último dia do mês** (série do dia 31: 31/01, 28/02, 31/03, 30/04...).
+- De 2 a 120 vezes, contando a primeira (`Regras.validarRepeticoes`).
+- Ids seguidos (`id`, `id + 1`, `id + 2`...) e o mesmo `recorrencia.grupo` (o id da primeira); `parcela` vai de 1 até `total`.
+- As parcelas dos meses seguintes são movimentações futuras comuns: entram no saldo previsto e passam a contar no saldo atual no dia delas.
+
+Ao **editar** ou **excluir** uma parcela que tem parcelas seguintes, a Coinn pergunta:
+
+- **Só esta parcela**; ou
+- **Esta e as próximas** (`Regras.editarSerie` / `Regras.excluirSerie`): tipo, valor, descrição e categoria passam para todas as seguintes; se o dia mudou, as próximas passam para esse dia, cada uma no seu mês. As parcelas anteriores não mudam.
+
+### Histórico de 30 em 30
+
+O histórico mostra as 30 primeiras movimentações (depois dos filtros e da ordenação). O botão **Carregar mais** acrescenta as próximas 30. Trocar um filtro, a visão ou o mês volta para as 30 primeiras. "Selecionar todas" seleciona só as que estão aparecendo.
 
 ### Visão mensal
 

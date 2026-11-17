@@ -11,13 +11,13 @@ Antes de começar: abra o Coinn, aperte F12 > Console e rode `localStorage.remov
 
 | # | Passos | Resultado esperado | OK? |
 |---|---|---|---|
-| 1.1 | Registre uma Entrada de 3500, categoria "Trabalho", subcategoria "Salário", descrição "Salário" | Aparece no histórico em verde; saldo R$ 3.500,00 | |
+| 1.1 | Registre uma Entrada de 3500, categoria "Trabalho", subcategoria "Salário" (crie as duas pelo botão "Selecionar"), descrição "Salário" | Aparece no histórico em verde; saldo R$ 3.500,00 | |
 | 1.2 | Registre uma Saída de 450,50, categoria "Alimentação", subcategoria "Mercado", descrição "Mercado do mês" | Aparece em vermelho, com a etiqueta "Alimentação › Mercado"; saldo R$ 3.049,50 | |
 | 1.3 | Tente registrar sem valor | Mensagem "Informe um valor maior que zero." | |
 | 1.4 | Registre uma movimentação sem categoria e sem subcategoria | É registrada normalmente, sem etiqueta | |
-| 1.4b | Preencha só a subcategoria, sem categoria | Mensagem "Informe a categoria antes da subcategoria." | |
-| 1.4c | Digite "alimentação" (minúsculo) na categoria e registre | Fica como "Alimentação", a grafia que já existia | |
-| 1.4d | Digite "Alimentação" na categoria e clique na subcategoria | Aparece "Mercado" como sugestão | |
+| 1.4b | Sem escolher a categoria, tente abrir a subcategoria | O botão da subcategoria fica desativado | |
+| 1.4c | Abra a categoria e tente criar "alimentação" (minúsculo) | Mensagem avisando que já existe "Alimentação" | |
+| 1.4d | Escolha a categoria "Alimentação" e abra a subcategoria | Aparece "Mercado" na lista | |
 | 1.5 | Tente digitar uma descrição com mais de 30 caracteres | O campo para em 30 e o contador mostra 30/30 | |
 | 1.6 | Registre uma Entrada de 0,30 e duas Saídas de 0,10 e 0,20 (em um Coinn vazio) | Saldo R$ 0,00, sem sinal de menos e sem cor vermelha | |
 
@@ -159,6 +159,40 @@ Prepare movimentações em pelo menos dois anos (ex.: algumas em 2025 e algumas 
 | 6c.9 | Clique em "Baixar planilha (CSV)" e abra no Excel | Colunas certas, acentos corretos, uma linha por mês e a linha "Total" | |
 | 6c.10 | Clique em "Imprimir / PDF" (também no modo noturno) | A prévia de impressão mostra só o relatório, com cores claras | |
 | 6c.11 | Ative o modo noturno | Gráficos, cartões e tabela continuam legíveis | |
+
+## 6d. Gerenciador de categorias
+
+| # | Passos | Resultado esperado | OK? |
+|---|---|---|---|
+| 6d.1 | Clique em "Selecionar" na categoria | Abre o painel "Categorias" com "Sem categoria" e as categorias, cada uma com quantas movimentações a usam | |
+| 6d.2 | Digite "Educação" e clique em "Criar" (ou Enter) | O painel fecha e o botão mostra "Educação" | |
+| 6d.3 | Abra a subcategoria e crie "Curso" | O botão da subcategoria mostra "Curso" | |
+| 6d.4 | Abra a categoria, passe o mouse em "Moradia", clique em ✎, troque para "Casa" e aperte Enter | Aviso "Moradia agora é Casa (N movimentações atualizadas)"; no histórico as etiquetas mudam | |
+| 6d.5 | Clique em × numa categoria usada e confirme | A categoria some; as movimentações dela continuam, sem categoria | |
+| 6d.6 | Aperte Esc ou clique fora do painel | O painel fecha | |
+| 6d.7 | Clique em "Limpar tudo" | As movimentações somem, mas as categorias continuam no painel | |
+
+## 6e. Repetir todo mês
+
+| # | Passos | Resultado esperado | OK? |
+|---|---|---|---|
+| 6e.1 | Registre uma Saída de 100, data 31/01, marque "Repetir todo mês" e coloque 4 | A prévia mostra "4 movimentações de R$ 100,00 · todo dia 31", de 31/01 a 30/04, total R$ 400,00 e o aviso do fim do mês | |
+| 6e.2 | Clique em Registrar | Aviso "4 movimentações registradas..."; datas 31/01, 28/02 (ou 29/02), 31/03 e 30/04, com o selo "1/4", "2/4"... | |
+| 6e.3 | Edite a parcela 2/4, mude o valor e salve | Pergunta "Só esta parcela" ou "Esta e as próximas" | |
+| 6e.4 | Escolha "Esta e as próximas" | A parcela 1 continua igual; 2, 3 e 4 mudam | |
+| 6e.5 | Exclua a parcela 3/4 escolhendo "Só esta parcela" | Só ela some | |
+| 6e.6 | Coloque 1 ou 121 em "Quantas vezes" e registre | Mensagem de 2 a 120 vezes | |
+
+## 6f. Futuras em amarelo, filtro "Quando" e "Carregar mais"
+
+| # | Passos | Resultado esperado | OK? |
+|---|---|---|---|
+| 6f.1 | Registre uma movimentação com data futura | Aparece em amarelo, com o selo "Futura"; o valor continua verde ou vermelho | |
+| 6f.2 | Na visão Geral, escolha Quando: "Só futuras" | Só aparecem as futuras, da mais próxima para a mais distante | |
+| 6f.3 | Vá para a visão Mensal | O filtro "Quando" some | |
+| 6f.4 | Com mais de 30 movimentações, role o histórico até o fim | Aparece "Carregar mais 30" e "Mostrando 30 de N"; clicando, aparecem mais 30 | |
+| 6f.5 | Troque um filtro | A lista volta para as 30 primeiras | |
+| 6f.6 | Selecione uma movimentação e edite outra | O contorno de seleção e o de edição aparecem inteiros, sem cortar nos cantos | |
 
 ## 7. Celular
 

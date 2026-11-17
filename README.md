@@ -6,7 +6,7 @@ Projeto desenvolvido pela equipe **Ministério da Fazenda** na disciplina de Eng
 
 ## Funcionalidades
 
-Versão atual: **1.2.0**: MVP ampliado da Sprint 4, com relatórios e exportar/importar por período
+Versão atual: **1.3.0**: MVP ampliado da Sprint 4, com relatórios, exportar/importar por período, gerenciador de categorias e movimentações recorrentes
 
 - **Registrar movimentação** (#17): entrada ou saída, com valor, data, descrição, categoria e subcategoria
 - **Consultar saldo** (#18): saldo atual, total de entradas e total de saídas
@@ -15,17 +15,19 @@ Versão atual: **1.2.0**: MVP ampliado da Sprint 4, com relatórios e exportar/i
 - **Excluir várias**: caixinha de seleção em cada movimentação do histórico, com "Selecionar todas" e "Excluir selecionadas" (com confirmação)
 - **Limpar tudo** (#59): apaga todas as movimentações, com confirmação
 - **Exportar e importar** (#21): cópia de segurança em arquivo `.json`
-  - **Exportar por período** (#__): tudo, um mês, vários meses ou um ano
-  - **Exportar e remover** (#__): tira um período que já terminou da Coinn para liberar espaço, guardando um "Ajuste de saldo" para o saldo não mudar
-  - **Importar incorporando** (#__): escolhe o período do arquivo e junta com os dados atuais (só o que é novo; conflitos são mostrados para o usuário decidir), ou substitui só aquele período, ou tudo
+  - **Exportar por período** (#73): tudo, um mês, vários meses ou um ano
+  - **Exportar e remover** (#74): tira um período que já terminou da Coinn para liberar espaço, guardando um "Ajuste de saldo" para o saldo não mudar
+  - **Importar incorporando** (#75): escolhe o período do arquivo e junta com os dados atuais (só o que é novo; conflitos são mostrados para o usuário decidir), ou substitui só aquele período, ou tudo
 - **Ocultar valores** (#56): botão de olho para usar o Coinn em público
 - **Modo noturno**: botão de lua/sol na barra do topo alterna entre o tema claro (laranja) e o noturno (roxo, cinza e preto); a escolha fica salva
-- **Categorias e subcategorias** (#57): texto livre e opcional (ex.: Alimentação › Mercado), com sugestões do que já foi usado
-- **Filtros do histórico** (#58): por tipo, mês, categoria e subcategoria, combináveis, com o total do período filtrado
-- **Movimentações futuras**: com data depois de hoje, não entram no saldo atual, só no **saldo previsto**; no dia da data passam a contar sozinhas
+- **Categorias e subcategorias** (#57): opcionais (ex.: Alimentação › Mercado). Os botões **Selecionar** do formulário abrem o **gerenciador de categorias** (#83), para escolher, **criar**, **renomear** (✎) e **excluir** (×). Renomear troca o nome em todas as movimentações; excluir deixa as movimentações sem categoria (elas não são apagadas)
+- **Filtros do histórico** (#58): por tipo, mês, categoria e subcategoria, combináveis, com o total do período filtrado. Na visão Geral, o filtro **Quando** (#81) mostra **só as futuras** (da mais próxima para a mais distante) ou só as que já aconteceram
+- **30 de cada vez** (#82): o histórico mostra 30 movimentações; no fim da lista, **Carregar mais** traz as próximas 30
+- **Movimentações futuras**: com data depois de hoje, aparecem em **amarelo** (#80) e não entram no saldo atual, só no **saldo previsto**; no dia da data passam a contar sozinhas
+- **Repetir todo mês** (#84): ao registrar, escolha quantas vezes (de 2 a 120) e a Coinn cria uma movimentação por mês, no mesmo dia (no último dia do mês, se o dia não existir). Ao editar ou excluir uma parcela, dá para aplicar **só nela** ou **nela e nas próximas**
 - **Visão Geral e Mensal**: a Geral mostra tudo; a Mensal mostra um mês por vez (‹ Novembro de 2026 ›), com entradas e saídas do mês, saldo no início e saldo previsto para o fim do mês
 - **Filtro De/Até**: nos filtros do histórico da visão Mensal, mostra só as movimentações de um intervalo de datas (inclusive um dia só, e atravessando meses), com entradas, saídas, resultado e o saldo previsto na data final. O card de saldo e o mês continuam iguais
-- **Relatórios** (#__ e #__): aba "Relatórios" com o período à escolha (mês, vários meses, ano, últimos 12 meses ou tudo), totais e comparação com o período anterior, gráficos de **entradas por mês**, **saídas por mês** e **saldo no fim de cada mês**, informações gerais (médias, taxa de economia...), destaques, gastos e entradas por categoria, maiores saídas, tabela mês a mês, planilha CSV e impressão/PDF
+- **Relatórios** (#76 e #77): aba "Relatórios" com o período à escolha (mês, vários meses, ano, últimos 12 meses ou tudo), totais e comparação com o período anterior, gráficos de **entradas por mês**, **saídas por mês** e **saldo no fim de cada mês**, informações gerais (médias, taxa de economia...), destaques, gastos e entradas por categoria, maiores saídas, tabela mês a mês, planilha CSV e impressão/PDF
 
 ## Como executar
 
@@ -85,12 +87,15 @@ Cada movimentação é salva assim:
 | `valor` | Número positivo, de 0,01 a 999.999,99 |
 | `data` | Data no formato `AAAA-MM-DD` |
 | `descricao` | Texto de até 30 caracteres |
-| `categoria` | Texto livre e opcional, até 20 caracteres (`""` quando não informada) |
+| `categoria` | Texto opcional, até 20 caracteres, escolhido no gerenciador de categorias (`""` quando não informada) |
 | `subcategoria` | Texto livre e opcional, até 20 caracteres. Só existe se houver categoria |
 | `dataModificacao` | Só existe se a movimentação foi editada: data e hora da última alteração |
 | `ajuste` | Só existe no "Ajuste de saldo" criado ao exportar e remover um período: `{ inicio, fim, quantidade }` |
+| `recorrencia` | Só existe nas movimentações criadas com "Repetir todo mês": `{ grupo, parcela, total }` |
 
 O saldo não é armazenado: ele é calculado a partir das movimentações sempre que a tela é atualizada. Movimentações com data depois de hoje entram só no saldo previsto.
+
+As categorias cadastradas no gerenciador ficam à parte, na chave `coinn.categorias` (veja `docs/modelo-de-dados.md`).
 
 ## Estrutura do projeto
 
