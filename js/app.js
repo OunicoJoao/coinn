@@ -22,6 +22,14 @@
 
 const { TIPO, LIMITES, FILTRO_TODOS, FILTRO_SEM, QUANDO, SITUACAO_MES, TIPO_PERIODO, MODO_IMPORTACAO } = Regras;
 
+// O histórico mostra 30 movimentações por vez; "Carregar mais" traz as próximas 30
+const TAMANHO_PAGINA = 30;
+
+// Ícones pequenos (traços de um SVG 24x24)
+const ICONE = Object.freeze({
+    seta: ["M12 5v14", "M6 13l6 6 6-6"]
+});
+
 // Visões do topo da página
 const VISAO = Object.freeze({
     GERAL: "geral",   // todas as movimentações; saldo atual + previsto
@@ -199,6 +207,10 @@ let periodo = null;
 const selecionadas = new Set();
 let idsVisiveis = [];
 
+// Histórico de 30 em 30: quantas aparecem agora e todas as que passam nos filtros
+let limiteLista = TAMANHO_PAGINA;
+let movimentacoesFiltradas = [];
+
 // true = valores aparecem; false = aparecem como "R$ •••••"
 let valoresVisiveis = Armazenamento.carregarValoresVisiveis();
 
@@ -228,14 +240,16 @@ descricaoEl.addEventListener("input", atualizarContador);
 dataEl.addEventListener("input", atualizarAvisoDataFutura);
 btnCancelarEdicaoEl.addEventListener("click", cancelarEdicao);
 btnLimparTudoEl.addEventListener("click", limparTudo);
-filtroTipoEl.addEventListener("change", atualizarHistorico);
-filtroQuandoEl.addEventListener("change", atualizarHistorico);
-filtroMesEl.addEventListener("change", atualizarHistorico);
+
+// Filtros: trocar qualquer um volta a lista para as primeiras 30
+filtroTipoEl.addEventListener("change", atualizarHistoricoDoInicio);
+filtroQuandoEl.addEventListener("change", atualizarHistoricoDoInicio);
+filtroMesEl.addEventListener("change", atualizarHistoricoDoInicio);
 filtroCategoriaEl.addEventListener("change", () => {
     atualizarOpcoesSubcategoria(); // a lista de subcategorias depende da categoria
-    atualizarHistorico();
+    atualizarHistoricoDoInicio();
 });
-filtroSubcategoriaEl.addEventListener("change", atualizarHistorico);
+filtroSubcategoriaEl.addEventListener("change", atualizarHistoricoDoInicio);
 categoriaEl.addEventListener("input", atualizarSugestoesSubcategoria);
 btnLimparFiltrosEl.addEventListener("click", limparFiltros);
 
@@ -564,6 +578,7 @@ function trocarVisao(evento) {
         limparPeriodo();
     }
     Graficos.esconderDica();
+    reiniciarPaginacao();
     atualizarTela();
 }
 
@@ -577,7 +592,7 @@ function aplicarPeriodo() {
     // Os dois campos vazios: o histórico volta a mostrar o mês
     if (!inicio && !fim) {
         limparPeriodo();
-        atualizarHistorico();
+        atualizarHistoricoDoInicio();
         return;
     }
 
@@ -587,7 +602,7 @@ function aplicarPeriodo() {
     if (erro) return; // mantém a lista como estava até o período ficar válido
 
     periodo = { inicio, fim };
-    atualizarHistorico();
+    atualizarHistoricoDoInicio();
 }
 
 function limparPeriodo() {
@@ -605,6 +620,7 @@ function textoPeriodo({ inicio, fim }) {
 
 function irParaMes(anoMes) {
     mesVisao = anoMes;
+    reiniciarPaginacao();
     atualizarTela();
 }
 
@@ -651,22 +667,73 @@ function atualizarHistorico() {
         Regras.filtrarMovimentacoes(movimentacoes, filtros, hoje()),
         filtros.quando === QUANDO.FUTURAS
     );
+    movimentacoesFiltradas = visiveis;
+
+    // Só as primeiras "limiteLista" aparecem; o resto vem com "Carregar mais"
+    const exibidas = visiveis.slice(0, limiteLista);
 
     // Só pode continuar selecionado o que está aparecendo na lista
-    // (assim nunca se exclui algo escondido por um filtro)
-    idsVisiveis = visiveis.map((mov) => mov.id);
+    // (assim nunca se exclui algo escondido por um filtro ou que ainda não foi carregado)
+    idsVisiveis = exibidas.map((mov) => mov.id);
     const aparecendo = new Set(idsVisiveis);
     [...selecionadas].forEach((id) => {
         if (!aparecendo.has(id)) selecionadas.delete(id);
     });
 
-    visiveis.forEach((mov) => listaEl.appendChild(criarItemHistorico(mov)));
+    exibidas.forEach((mov) => listaEl.appendChild(criarItemHistorico(mov)));
+    mostrarBotaoCarregarMais();
     atualizarBarraSelecao();
 
     historicoVazioEl.hidden = visiveis.length > 0;
     historicoVazioEl.textContent = mensagemHistoricoVazio(temMovimentacoes, filtros);
 
     atualizarTotalFiltrado(filtros, visiveis);
+}
+
+// Filtro, visão ou mês mudou: a lista volta para as primeiras 30, rolada até o topo
+function atualizarHistoricoDoInicio() {
+    reiniciarPaginacao();
+    atualizarHistorico();
+}
+
+function reiniciarPaginacao() {
+    limiteLista = TAMANHO_PAGINA;
+    listaEl.scrollTop = 0;
+}
+
+// Último item da lista: "Carregar mais 30" e "Mostrando 30 de 85"
+function mostrarBotaoCarregarMais() {
+    listaEl.querySelector(".carregar-mais")?.remove();
+    const restantes = movimentacoesFiltradas.length - idsVisiveis.length;
+    if (restantes <= 0) return;
+
+    const li = document.createElement("li");
+    li.classList.add("carregar-mais");
+    const botao = document.createElement("button");
+    botao.type = "button";
+    botao.classList.add("btn-carregar-mais");
+    botao.dataset.acao = "carregar-mais";
+    botao.append(criarIcone(ICONE.seta), `Carregar mais ${Math.min(TAMANHO_PAGINA, restantes)}`);
+    const contagem = document.createElement("small");
+    contagem.textContent = `Mostrando ${idsVisiveis.length} de ${movimentacoesFiltradas.length}`;
+    li.append(botao, contagem);
+    listaEl.append(li);
+}
+
+// Acrescenta as próximas no fim da lista, sem redesenhar as que já estão lá
+// (redesenhar repetiria a animação de entrada e mexeria na rolagem)
+function carregarMais() {
+    const inicio = idsVisiveis.length;
+    limiteLista = inicio + TAMANHO_PAGINA;
+    const novas = movimentacoesFiltradas.slice(inicio, limiteLista);
+    listaEl.querySelector(".carregar-mais")?.remove();
+    novas.forEach((mov) => listaEl.append(criarItemHistorico(mov)));
+    idsVisiveis = [...idsVisiveis, ...novas.map((mov) => mov.id)];
+    mostrarBotaoCarregarMais();
+    atualizarBarraSelecao();
+
+    // Para quem usa o teclado: o foco vai para a primeira movimentação nova
+    listaEl.querySelector(`.movimentacao[data-id="${novas[0]?.id}"] .btn-editar`)?.focus({ preventScroll: true });
 }
 
 function mensagemHistoricoVazio(temMovimentacoes, filtros) {
@@ -842,7 +909,7 @@ function atualizarSugestoesSubcategoria() {
 
 function limparFiltros() {
     resetarFiltros();
-    atualizarHistorico();
+    atualizarHistoricoDoInicio();
 }
 
 function resetarFiltros() {
@@ -952,6 +1019,11 @@ function criarCaixaSelecao(mov) {
 function tratarCliqueNaLista(evento) {
     const botao = evento.target.closest("button[data-acao]");
     if (!botao) return;
+
+    if (botao.dataset.acao === "carregar-mais") {
+        carregarMais();
+        return;
+    }
 
     const id = Number(botao.dataset.id);
     if (botao.dataset.acao === "editar") {
@@ -2143,6 +2215,20 @@ function textoTamanho(caracteres) {
     const kb = caracteres / 1024;
     if (kb < 1024) return `${Math.max(1, Math.round(kb)).toLocaleString("pt-BR")} KB`;
     return `${(kb / 1024).toLocaleString("pt-BR", { maximumFractionDigits: 1 })} MB`;
+}
+
+// Ícone SVG com os traços informados (ver ICONE)
+function criarIcone(caminhos) {
+    const svg = document.createElementNS("http://www.w3.org/2000/svg", "svg");
+    svg.setAttribute("class", "icone");
+    svg.setAttribute("viewBox", "0 0 24 24");
+    svg.setAttribute("aria-hidden", "true");
+    caminhos.forEach((d) => {
+        const caminho = document.createElementNS("http://www.w3.org/2000/svg", "path");
+        caminho.setAttribute("d", d);
+        svg.append(caminho);
+    });
+    return svg;
 }
 
 // "AAAA-MM" de hoje
