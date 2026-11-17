@@ -20,7 +20,7 @@
 
 // ---------- Constantes ----------
 
-const { TIPO, LIMITES, FILTRO_TODOS, FILTRO_SEM, SITUACAO_MES, TIPO_PERIODO, MODO_IMPORTACAO } = Regras;
+const { TIPO, LIMITES, FILTRO_TODOS, FILTRO_SEM, QUANDO, SITUACAO_MES, TIPO_PERIODO, MODO_IMPORTACAO } = Regras;
 
 // Visões do topo da página
 const VISAO = Object.freeze({
@@ -95,6 +95,8 @@ const totalFiltradoEl = document.getElementById("total-filtrado");
 const btnLimparTudoEl = document.getElementById("btn-limpar-tudo");
 const filtrosEl = document.getElementById("filtros");
 const filtroTipoEl = document.getElementById("filtro-tipo");
+const filtroQuandoEl = document.getElementById("filtro-quando");
+const filtroQuandoGrupoEl = document.getElementById("filtro-quando-grupo");
 const filtroMesEl = document.getElementById("filtro-mes");
 const filtroCategoriaEl = document.getElementById("filtro-categoria");
 const filtroSubcategoriaEl = document.getElementById("filtro-subcategoria");
@@ -227,6 +229,7 @@ dataEl.addEventListener("input", atualizarAvisoDataFutura);
 btnCancelarEdicaoEl.addEventListener("click", cancelarEdicao);
 btnLimparTudoEl.addEventListener("click", limparTudo);
 filtroTipoEl.addEventListener("change", atualizarHistorico);
+filtroQuandoEl.addEventListener("change", atualizarHistorico);
 filtroMesEl.addEventListener("change", atualizarHistorico);
 filtroCategoriaEl.addEventListener("change", () => {
     atualizarOpcoesSubcategoria(); // a lista de subcategorias depende da categoria
@@ -627,8 +630,10 @@ function atualizarVisao() {
     filtroFimGrupoEl.hidden = !mensal;
     if (!mensal) periodoErroEl.hidden = true;
 
-    // Na visão mensal, o mês já é o do navegador: o filtro de mês do histórico some
+    // Na visão mensal, o mês já é o do navegador: o filtro de mês do histórico some.
+    // O filtro "Quando" (só futuras) é da visão geral.
     filtroMesGrupoEl.hidden = mensal;
+    filtroQuandoGrupoEl.hidden = mensal;
 }
 
 // ---------- #19 Ver histórico (com filtros) ----------
@@ -641,7 +646,11 @@ function atualizarHistorico() {
     btnLimparTudoEl.hidden = !temMovimentacoes;
 
     const filtros = lerFiltros();
-    const visiveis = Regras.ordenarHistorico(Regras.filtrarMovimentacoes(movimentacoes, filtros));
+    // Só as futuras: a mais próxima primeiro. Nos outros casos, a mais recente primeiro.
+    const visiveis = Regras.ordenarHistorico(
+        Regras.filtrarMovimentacoes(movimentacoes, filtros, hoje()),
+        filtros.quando === QUANDO.FUTURAS
+    );
 
     // Só pode continuar selecionado o que está aparecendo na lista
     // (assim nunca se exclui algo escondido por um filtro)
@@ -670,12 +679,17 @@ function mensagemHistoricoVazio(temMovimentacoes, filtros) {
         }
         return `Nenhuma movimentação em ${Regras.formatarMes(mesVisao)}.`;
     }
+    if (filtros.quando === QUANDO.FUTURAS && !Regras.filtroAtivo({ ...filtros, quando: FILTRO_TODOS.QUANDO })) {
+        return "Nenhuma movimentação futura.";
+    }
     return "Nenhuma movimentação encontrada com esses filtros.";
 }
 
 function lerFiltros() {
     const filtros = {
         tipo: filtroTipoEl.value,
+        // "Quando" só existe na visão geral
+        quando: visao === VISAO.GERAL ? filtroQuandoEl.value : FILTRO_TODOS.QUANDO,
         mes: filtroMesEl.value,
         categoria: filtroCategoriaEl.value,
         subcategoria: filtroSubcategoriaEl.value
@@ -833,6 +847,7 @@ function limparFiltros() {
 
 function resetarFiltros() {
     filtroTipoEl.value = FILTRO_TODOS.TIPO;
+    filtroQuandoEl.value = FILTRO_TODOS.QUANDO;
     filtroMesEl.value = FILTRO_TODOS.MES;
     filtroCategoriaEl.value = FILTRO_TODOS.CATEGORIA;
     limparPeriodo();
