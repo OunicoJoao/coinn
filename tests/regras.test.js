@@ -820,3 +820,99 @@ describe("filtro Quando (só futuras)", () => {
         assert.deepEqual(ids(Regras.ordenarHistorico(lista)), [4, 3, 2, 1]);
     });
 });
+
+describe("gerenciador de categorias", () => {
+    const lista = [
+        mov({ id: 1, categoria: "Moradia", subcategoria: "Aluguel" }),
+        mov({ id: 2, categoria: "moradia", subcategoria: "Contas" }),
+        mov({ id: 3, categoria: "Lazer", subcategoria: "" }),
+        mov({ id: 4, categoria: "", subcategoria: "" })
+    ];
+
+    it("sincroniza: cadastra as categorias usadas, sem repetir maiúsculas/minúsculas", () => {
+        const { categorias, mudou } = Regras.sincronizarCategorias([], lista);
+        assert.equal(mudou, true);
+        assert.deepEqual(categorias.map((c) => c.nome), ["Lazer", "Moradia"]);
+        assert.deepEqual(categorias[1].subcategorias.map((s) => s.nome), ["Aluguel", "Contas"]);
+        const ids = categorias.flatMap((c) => [c.id, ...c.subcategorias.map((s) => s.id)]);
+        assert.equal(new Set(ids).size, ids.length);
+        // De novo: nada muda
+        assert.equal(Regras.sincronizarCategorias(categorias, lista).mudou, false);
+    });
+
+    it("lê o cadastro salvo, descartando itens inválidos e repetidos", () => {
+        const lidas = Regras.lerCategorias([
+            { id: 1, nome: " Casa ", subcategorias: [{ id: 2, nome: "Luz" }, { id: 3, nome: "luz" }, { id: 4, nome: "" }] },
+            { id: 5, nome: "casa", subcategorias: [] },
+            { id: 1, nome: "Repetido" },
+            { nome: "Sem id" },
+            { id: 6, nome: "x".repeat(21) }
+        ]);
+        assert.deepEqual(lidas, [{ id: 1, nome: "Casa", subcategorias: [{ id: 2, nome: "Luz" }] }]);
+        assert.deepEqual(Regras.lerCategorias("lixo"), []);
+    });
+
+    it("valida o nome: vazio, longo demais ou já existente no mesmo nível", () => {
+        assert.match(Regras.validarNomeCategoria("  "), /Informe o nome/);
+        assert.match(Regras.validarNomeCategoria("x".repeat(21)), /no máximo 20/);
+        assert.match(Regras.validarNomeCategoria("moradia", ["Moradia"]), /Já existe "Moradia"/);
+        assert.equal(Regras.validarNomeCategoria("Casa", ["Moradia"]), null);
+    });
+
+    it("cria categoria e subcategoria, em ordem alfabética", () => {
+        let r = Regras.criarCategoria([], "Transporte");
+        r = Regras.criarCategoria(r.categorias, "Alimentação");
+        const transporte = r.categorias.find((c) => c.nome === "Transporte");
+        r = Regras.criarCategoria(r.categorias, "Uber", transporte.id);
+        assert.deepEqual(r.criada.nome, "Uber");
+        assert.deepEqual(r.categorias.map((c) => c.nome), ["Alimentação", "Transporte"]);
+        assert.deepEqual(r.categorias[1].subcategorias.map((s) => s.nome), ["Uber"]);
+        assert.match(Regras.criarCategoria(r.categorias, "uber", transporte.id).erro, /Já existe/);
+        assert.match(Regras.criarCategoria(r.categorias, "X", 999).erro, /não encontrada/);
+    });
+
+    it("conta quantas movimentações usam a categoria ou a subcategoria", () => {
+        assert.equal(Regras.contarUsoCategoria(lista, "Moradia"), 2);
+        assert.equal(Regras.contarUsoCategoria(lista, "Moradia", "aluguel"), 1);
+        assert.equal(Regras.contarUsoCategoria(lista, "Saúde"), 0);
+    });
+
+    it("renomear categoria troca o nome nas movimentações", () => {
+        const { categorias } = Regras.sincronizarCategorias([], lista);
+        const moradia = categorias.find((c) => c.nome === "Moradia");
+        const r = Regras.renomearCategoria(categorias, lista, moradia.id, "Casa");
+        assert.equal(r.alteradas, 2);
+        assert.deepEqual(r.lista.map((m) => m.categoria), ["Casa", "Casa", "Lazer", ""]);
+        assert.deepEqual(r.categorias.map((c) => c.nome), ["Casa", "Lazer"]);
+        assert.match(Regras.renomearCategoria(categorias, lista, moradia.id, "lazer").erro, /Já existe/);
+    });
+
+    it("renomear subcategoria troca só dentro da categoria dela", () => {
+        const outra = [...lista, mov({ id: 9, categoria: "Lazer", subcategoria: "Aluguel" })];
+        const { categorias } = Regras.sincronizarCategorias([], outra);
+        const aluguel = categorias.find((c) => c.nome === "Moradia").subcategorias.find((s) => s.nome === "Aluguel");
+        const r = Regras.renomearCategoria(categorias, outra, aluguel.id, "Aluguel novo");
+        assert.equal(r.alteradas, 1);
+        assert.equal(r.lista.find((m) => m.id === 1).subcategoria, "Aluguel novo");
+        assert.equal(r.lista.find((m) => m.id === 9).subcategoria, "Aluguel");
+    });
+
+    it("excluir categoria: as movimentações ficam sem categoria (não são apagadas)", () => {
+        const { categorias } = Regras.sincronizarCategorias([], lista);
+        const moradia = categorias.find((c) => c.nome === "Moradia");
+        const r = Regras.excluirCategoria(categorias, lista, moradia.id);
+        assert.equal(r.alteradas, 2);
+        assert.equal(r.lista.length, 4);
+        assert.deepEqual(r.lista.slice(0, 2).map((m) => [m.categoria, m.subcategoria]), [["", ""], ["", ""]]);
+        assert.deepEqual(r.categorias.map((c) => c.nome), ["Lazer"]);
+    });
+
+    it("excluir subcategoria: as movimentações ficam sem subcategoria", () => {
+        const { categorias } = Regras.sincronizarCategorias([], lista);
+        const contas = categorias.find((c) => c.nome === "Moradia").subcategorias.find((s) => s.nome === "Contas");
+        const r = Regras.excluirCategoria(categorias, lista, contas.id);
+        assert.equal(r.alteradas, 1);
+        assert.deepEqual([r.lista[1].categoria, r.lista[1].subcategoria], ["moradia", ""]);
+        assert.deepEqual(r.categorias.find((c) => c.nome === "Moradia").subcategorias.map((s) => s.nome), ["Aluguel"]);
+    });
+});

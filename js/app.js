@@ -27,6 +27,7 @@ const TAMANHO_PAGINA = 30;
 
 // Ícones pequenos (traços de um SVG 24x24)
 const ICONE = Object.freeze({
+    check: ["M5 12l5 5 9-10"],
     seta: ["M12 5v14", "M6 13l6 6 6-6"]
 });
 
@@ -118,8 +119,22 @@ const valorEl = document.getElementById("valor");
 const dataEl = document.getElementById("data");
 const categoriaEl = document.getElementById("categoria");
 const subcategoriaEl = document.getElementById("subcategoria");
-const sugestoesCategoriaEl = document.getElementById("sugestoes-categoria");
-const sugestoesSubcategoriaEl = document.getElementById("sugestoes-subcategoria");
+
+// Gerenciador de categorias (botões "Selecionar" do formulário)
+const btnCategoriaEl = document.getElementById("btn-categoria");
+const btnSubcategoriaEl = document.getElementById("btn-subcategoria");
+const textoCategoriaEl = document.getElementById("texto-categoria");
+const textoSubcategoriaEl = document.getElementById("texto-subcategoria");
+const gerenciadorEl = document.getElementById("gerenciador-categorias");
+const gerenciadorTituloEl = document.getElementById("gerenciador-titulo");
+const gerenciadorSubtituloEl = document.getElementById("gerenciador-subtitulo");
+const btnFecharGerenciadorEl = document.getElementById("btn-fechar-gerenciador");
+const novaCategoriaEl = document.getElementById("nova-categoria");
+const btnCriarCategoriaEl = document.getElementById("btn-criar-categoria");
+const gerenciadorErroEl = document.getElementById("gerenciador-erro");
+const gerenciadorListaEl = document.getElementById("gerenciador-lista");
+const gerenciadorVazioEl = document.getElementById("gerenciador-vazio");
+
 const erroEl = document.getElementById("mensagem-erro");
 const btnRegistrarEl = document.getElementById("btn-registrar");
 const btnCancelarEdicaoEl = document.getElementById("btn-cancelar-edicao");
@@ -192,6 +207,16 @@ const btnConfirmarImportarEl = document.getElementById("btn-confirmar-importar")
 // normalizarMovimentacao garante os campos de categoria em dados salvos antes deles existirem
 let movimentacoes = Armazenamento.carregarMovimentacoes().map(Regras.normalizarMovimentacao);
 
+// Categorias cadastradas no gerenciador: [{ id, nome, subcategorias: [{ id, nome }] }].
+// Quem já tinha movimentações com categoria ganha o cadastro delas na primeira vez.
+let categorias = Regras.lerCategorias(Armazenamento.carregarCategorias());
+sincronizarCategorias();
+
+// Gerenciador de categorias aberto: "categoria", "subcategoria" ou null (fechado),
+// e o id do item que está sendo renomeado (ou null)
+let modoGerenciador = null;
+let idRenomeando = null;
+
 // id da movimentação sendo editada; null quando o formulário está criando uma nova
 let idEmEdicao = null;
 
@@ -229,8 +254,7 @@ let importacao = null;
 // ---------- Inicialização ----------
 
 descricaoEl.maxLength = LIMITES.DESCRICAO_MAX;
-categoriaEl.maxLength = LIMITES.CATEGORIA_MAX;
-subcategoriaEl.maxLength = LIMITES.CATEGORIA_MAX;
+novaCategoriaEl.maxLength = LIMITES.CATEGORIA_MAX;
 valorEl.min = LIMITES.VALOR_MIN;
 valorEl.max = LIMITES.VALOR_MAX;
 dataEl.value = hoje();
@@ -250,8 +274,24 @@ filtroCategoriaEl.addEventListener("change", () => {
     atualizarHistoricoDoInicio();
 });
 filtroSubcategoriaEl.addEventListener("change", atualizarHistoricoDoInicio);
-categoriaEl.addEventListener("input", atualizarSugestoesSubcategoria);
 btnLimparFiltrosEl.addEventListener("click", limparFiltros);
+
+// Gerenciador de categorias
+btnCategoriaEl.addEventListener("click", () => alternarGerenciador("categoria"));
+btnSubcategoriaEl.addEventListener("click", () => alternarGerenciador("subcategoria"));
+btnFecharGerenciadorEl.addEventListener("click", () => fecharGerenciador(true));
+btnCriarCategoriaEl.addEventListener("click", criarCategoria);
+novaCategoriaEl.addEventListener("keydown", (evento) => {
+    if (evento.key === "Enter") {
+        evento.preventDefault(); // não registra a movimentação
+        criarCategoria();
+    }
+});
+novaCategoriaEl.addEventListener("input", () => mostrarErroGerenciador(""));
+gerenciadorListaEl.addEventListener("click", tratarCliqueNoGerenciador);
+gerenciadorListaEl.addEventListener("keydown", tratarTeclaNoGerenciador);
+document.addEventListener("click", fecharGerenciadorAoClicarFora);
+document.addEventListener("keydown", fecharGerenciadorComEsc);
 
 // Visão Geral / Mensal e navegação entre meses
 abasVisaoEl.addEventListener("click", trocarVisao);
@@ -327,6 +367,7 @@ document.querySelectorAll("dialog [data-fechar]").forEach((botao) => {
 aplicarVisibilidade();
 aplicarTema();
 atualizarContador();
+atualizarSeletoresCategoria();
 atualizarTela();
 
 // ---------- #17 Registrar movimentação (e salvar edição) ----------
@@ -340,7 +381,7 @@ function registrarMovimentacao(evento) {
         return;
     }
 
-    // Se já existe "Alimentação" e a pessoa digitou "alimentação", usa a grafia que já existe
+    // Se já existe "Alimentação" e a categoria veio como "alimentação", usa a grafia que já existe
     const dados = Regras.aplicarGrafiaExistente(movimentacoes, lerFormulario());
 
     const novaLista = idEmEdicao !== null
@@ -371,10 +412,13 @@ function lerFormulario() {
 
 function limparFormulario() {
     formEl.reset();
+    // Campos escondidos não voltam com o reset(): limpa a categoria escolhida à mão
+    categoriaEl.value = "";
+    subcategoriaEl.value = "";
     dataEl.value = hoje();
     esconderErro();
     atualizarContador();
-    atualizarSugestoesSubcategoria();
+    atualizarSeletoresCategoria();
     atualizarAvisoDataFutura();
     descricaoEl.focus();
 }
@@ -408,7 +452,8 @@ function iniciarEdicao(id) {
 
     esconderErro();
     atualizarContador();
-    atualizarSugestoesSubcategoria();
+    fecharGerenciador();
+    atualizarSeletoresCategoria();
     atualizarAvisoDataFutura();
     destacarItemEmEdicao();
 
@@ -464,6 +509,378 @@ function excluirMovimentacao(id) {
     }
 
     atualizarTela();
+}
+
+// ---------- Gerenciador de categorias ----------
+
+// Cadastra as categorias usadas nas movimentações que ainda não estão no gerenciador
+// (dados de antes do gerenciador, importação). Grava só se algo mudou.
+function sincronizarCategorias() {
+    const resultado = Regras.sincronizarCategorias(categorias, movimentacoes);
+    if (!resultado.mudou) return;
+    categorias = resultado.categorias;
+    Armazenamento.salvarCategorias(categorias);
+}
+
+// Botões "Selecionar" do formulário: mostram o que está escolhido
+function atualizarSeletoresCategoria() {
+    const categoria = categoriaEl.value;
+    const subcategoria = subcategoriaEl.value;
+
+    textoCategoriaEl.textContent = categoria || "Selecionar";
+    btnCategoriaEl.classList.toggle("vazio", !categoria);
+    textoSubcategoriaEl.textContent = subcategoria || "Selecionar";
+    btnSubcategoriaEl.classList.toggle("vazio", !subcategoria);
+
+    // Sem categoria não há subcategoria
+    btnSubcategoriaEl.disabled = !categoria;
+    btnSubcategoriaEl.title = categoria ? "" : "Escolha a categoria primeiro";
+    if (!categoria && modoGerenciador === "subcategoria") fecharGerenciador();
+
+    if (modoGerenciador) desenharGerenciador();
+}
+
+// A categoria escolhida no formulário, no cadastro (ou undefined)
+function categoriaDoFormulario() {
+    return categorias.find((item) => Regras.mesmoNome(item.nome, categoriaEl.value));
+}
+
+function alternarGerenciador(modo) {
+    if (modoGerenciador === modo) {
+        fecharGerenciador(true);
+        return;
+    }
+    abrirGerenciador(modo);
+}
+
+function abrirGerenciador(modo) {
+    fecharMenuDados();
+    modoGerenciador = modo;
+    idRenomeando = null;
+    novaCategoriaEl.value = "";
+    mostrarErroGerenciador("");
+
+    const subcategoria = modo === "subcategoria";
+    gerenciadorEl.classList.toggle("a-direita", subcategoria);
+    btnCategoriaEl.setAttribute("aria-expanded", String(!subcategoria));
+    btnSubcategoriaEl.setAttribute("aria-expanded", String(subcategoria));
+    gerenciadorEl.hidden = false;
+    desenharGerenciador();
+    novaCategoriaEl.focus();
+}
+
+// devolverFoco: volta o foco para o botão que abriu o painel (fechar pelo × ou pelo Esc)
+function fecharGerenciador(devolverFoco = false) {
+    if (!modoGerenciador) return;
+    const botao = modoGerenciador === "subcategoria" ? btnSubcategoriaEl : btnCategoriaEl;
+    modoGerenciador = null;
+    idRenomeando = null;
+    gerenciadorEl.hidden = true;
+    btnCategoriaEl.setAttribute("aria-expanded", "false");
+    btnSubcategoriaEl.setAttribute("aria-expanded", "false");
+    if (devolverFoco) botao.focus();
+}
+
+function fecharGerenciadorAoClicarFora(evento) {
+    if (!modoGerenciador) return;
+    // Cliques no próprio painel ou nos botões que o abrem não fecham
+    if (evento.target.closest("#gerenciador-categorias, #btn-categoria, #btn-subcategoria, dialog")) return;
+    // Um item que acabou de ser redesenhado não está mais na página: também não fecha
+    if (!evento.target.isConnected) return;
+    fecharGerenciador();
+}
+
+function fecharGerenciadorComEsc(evento) {
+    if (evento.key !== "Escape" || !modoGerenciador || algumDialogoAberto()) return;
+    if (idRenomeando !== null) return; // o Esc do campo de renomear só cancela o renomear
+    fecharGerenciador(true);
+}
+
+function mostrarErroGerenciador(mensagem) {
+    gerenciadorErroEl.textContent = mensagem || "";
+    gerenciadorErroEl.hidden = !mensagem;
+}
+
+// Itens do nível aberto: as categorias, ou as subcategorias da categoria escolhida
+function itensDoGerenciador() {
+    if (modoGerenciador === "categoria") return categorias;
+    return categoriaDoFormulario()?.subcategorias || [];
+}
+
+function desenharGerenciador() {
+    const subcategoria = modoGerenciador === "subcategoria";
+    const categoria = categoriaDoFormulario();
+    const itens = itensDoGerenciador();
+    const escolhido = subcategoria ? subcategoriaEl.value : categoriaEl.value;
+
+    gerenciadorTituloEl.textContent = subcategoria ? "Subcategorias" : "Categorias";
+    gerenciadorSubtituloEl.textContent = subcategoria
+        ? `de ${categoriaEl.value}`
+        : "Escolha, crie, renomeie (✎) ou exclua (×)";
+    novaCategoriaEl.placeholder = subcategoria ? "Nova subcategoria" : "Nova categoria";
+    novaCategoriaEl.setAttribute("aria-label", subcategoria ? "Nome da nova subcategoria" : "Nome da nova categoria");
+
+    const linhas = [criarItemNenhuma(subcategoria, !escolhido)];
+    itens.forEach((item) => {
+        linhas.push(item.id === idRenomeando
+            ? criarItemRenomeando(item)
+            : criarItemGerenciador(item, subcategoria ? categoria.nome : null, Regras.mesmoNome(item.nome, escolhido)));
+    });
+    gerenciadorListaEl.replaceChildren(...linhas);
+
+    gerenciadorVazioEl.hidden = itens.length > 0;
+    gerenciadorVazioEl.textContent = subcategoria
+        ? "Nenhuma subcategoria nesta categoria. Crie a primeira acima."
+        : "Nenhuma categoria ainda. Crie a primeira acima.";
+}
+
+// Primeira linha: "Sem categoria" / "Sem subcategoria"
+function criarItemNenhuma(subcategoria, escolhido) {
+    const li = document.createElement("li");
+    li.classList.add("gerenciador-item", "nenhuma");
+    li.classList.toggle("escolhido", escolhido);
+    const botao = criarBotaoEscolher(subcategoria ? "Sem subcategoria" : "Sem categoria", "");
+    botao.dataset.id = "";
+    li.append(botao);
+    return li;
+}
+
+function criarBotaoEscolher(nome, uso) {
+    const botao = document.createElement("button");
+    botao.type = "button";
+    botao.classList.add("gerenciador-escolher");
+    botao.dataset.acao = "escolher";
+    const texto = document.createElement("span");
+    texto.classList.add("gerenciador-nome");
+    texto.textContent = nome;
+    botao.append(criarIcone(ICONE.check), texto);
+    if (uso) {
+        const contagem = document.createElement("small");
+        contagem.classList.add("gerenciador-uso");
+        contagem.textContent = uso;
+        botao.append(contagem);
+    }
+    return botao;
+}
+
+// Linha de uma categoria: escolher (o nome), renomear (✎) e excluir (×)
+function criarItemGerenciador(item, nomeCategoria, escolhido) {
+    const usos = nomeCategoria === null
+        ? Regras.contarUsoCategoria(movimentacoes, item.nome)
+        : Regras.contarUsoCategoria(movimentacoes, nomeCategoria, item.nome);
+
+    const li = document.createElement("li");
+    li.classList.add("gerenciador-item");
+    li.classList.toggle("escolhido", escolhido);
+
+    const escolher = criarBotaoEscolher(item.nome, usos ? textoQuantidade(usos) : "");
+    escolher.dataset.id = item.id;
+    escolher.setAttribute("aria-pressed", String(escolhido));
+    li.append(
+        escolher,
+        criarBotaoAcao("renomear", "✎", `Renomear ${item.nome}`, item.id),
+        criarBotaoAcao("excluir", "×", `Excluir ${item.nome}`, item.id)
+    );
+    li.querySelector('[data-acao="renomear"]').classList.add("btn-editar");
+    return li;
+}
+
+// Linha em modo de renomear: campo com o nome, salvar (✓) e cancelar (↺)
+function criarItemRenomeando(item) {
+    const li = document.createElement("li");
+    li.classList.add("gerenciador-item", "renomeando");
+
+    const campo = document.createElement("input");
+    campo.type = "text";
+    campo.value = item.nome;
+    campo.maxLength = LIMITES.CATEGORIA_MAX;
+    campo.autocomplete = "off";
+    campo.classList.add("gerenciador-renomear");
+    campo.dataset.id = item.id;
+    campo.setAttribute("aria-label", `Novo nome para ${item.nome}`);
+
+    const salvarNome = criarBotaoAcao("salvar-nome", "✓", "Salvar o nome", item.id);
+    salvarNome.classList.add("btn-salvar-nome");
+    const cancelar = criarBotaoAcao("cancelar-nome", "↺", "Cancelar", item.id);
+    cancelar.classList.add("btn-cancelar-nome");
+
+    li.append(campo, salvarNome, cancelar);
+    return li;
+}
+
+function tratarCliqueNoGerenciador(evento) {
+    const botao = evento.target.closest("button[data-acao]");
+    if (!botao) return;
+
+    const id = botao.dataset.id === "" ? null : Number(botao.dataset.id);
+    switch (botao.dataset.acao) {
+    case "escolher":
+        escolherCategoria(id);
+        break;
+    case "renomear":
+        idRenomeando = id;
+        mostrarErroGerenciador("");
+        desenharGerenciador();
+        gerenciadorListaEl.querySelector(".gerenciador-renomear")?.select();
+        break;
+    case "salvar-nome":
+        salvarNovoNome(id);
+        break;
+    case "cancelar-nome":
+        cancelarRenomear();
+        break;
+    case "excluir":
+        excluirCategoria(id);
+        break;
+    }
+}
+
+// No campo de renomear: Enter salva o novo nome; Esc cancela
+function tratarTeclaNoGerenciador(evento) {
+    const campo = evento.target.closest(".gerenciador-renomear");
+    if (!campo) return;
+    if (evento.key === "Enter") {
+        evento.preventDefault(); // não registra a movimentação
+        salvarNovoNome(Number(campo.dataset.id));
+    } else if (evento.key === "Escape") {
+        evento.preventDefault();
+        cancelarRenomear();
+    }
+}
+
+function cancelarRenomear() {
+    const id = idRenomeando;
+    idRenomeando = null;
+    mostrarErroGerenciador("");
+    desenharGerenciador();
+    gerenciadorListaEl.querySelector(`.gerenciador-escolher[data-id="${id}"]`)?.focus();
+}
+
+// Escolhe a categoria (ou "Sem categoria", id null) e fecha o painel
+function escolherCategoria(id) {
+    const item = id === null ? null : itensDoGerenciador().find((atual) => atual.id === id);
+    if (modoGerenciador === "categoria") {
+        const anterior = categoriaEl.value;
+        categoriaEl.value = item ? item.nome : "";
+        // Trocou a categoria: a subcategoria escolhida era da outra
+        if (!Regras.mesmoNome(categoriaEl.value, anterior)) subcategoriaEl.value = "";
+    } else {
+        subcategoriaEl.value = item ? item.nome : "";
+    }
+    fecharGerenciador(true);
+    atualizarSeletoresCategoria();
+}
+
+// Grava o resultado de criar, renomear ou excluir (categorias e, se mudaram, as movimentações)
+function salvarGerenciador(novasCategorias, novaLista = null) {
+    if (novaLista && novaLista !== movimentacoes && !salvar(novaLista)) return false;
+    if (!Armazenamento.salvarCategorias(novasCategorias)) return false;
+    categorias = novasCategorias;
+    return true;
+}
+
+function criarCategoria() {
+    const subcategoria = modoGerenciador === "subcategoria";
+    const categoria = categoriaDoFormulario();
+    if (subcategoria && !categoria) return;
+
+    const resultado = Regras.criarCategoria(categorias, novaCategoriaEl.value, subcategoria ? categoria.id : null);
+    if (resultado.erro) {
+        mostrarErroGerenciador(resultado.erro);
+        novaCategoriaEl.focus();
+        return;
+    }
+    if (!salvarGerenciador(resultado.categorias)) {
+        mostrarErroGerenciador("Não foi possível salvar. Verifique se o navegador permite armazenamento local.");
+        return;
+    }
+
+    // A categoria criada já fica escolhida no formulário
+    if (subcategoria) {
+        subcategoriaEl.value = resultado.criada.nome;
+    } else {
+        categoriaEl.value = resultado.criada.nome;
+        subcategoriaEl.value = "";
+    }
+    fecharGerenciador(true);
+    atualizarTela();
+    mostrarAviso(`${subcategoria ? "Subcategoria" : "Categoria"} "${resultado.criada.nome}" criada.`);
+}
+
+function salvarNovoNome(id) {
+    const subcategoria = modoGerenciador === "subcategoria";
+    const item = itensDoGerenciador().find((atual) => atual.id === id);
+    const campo = gerenciadorListaEl.querySelector(".gerenciador-renomear");
+    if (!item || !campo) return;
+
+    if (campo.value.trim() === item.nome) {
+        cancelarRenomear();
+        return;
+    }
+    const resultado = Regras.renomearCategoria(categorias, movimentacoes, id, campo.value);
+    if (resultado.erro) {
+        mostrarErroGerenciador(resultado.erro);
+        campo.focus();
+        return;
+    }
+    if (!salvarGerenciador(resultado.categorias, resultado.lista)) {
+        mostrarErroGerenciador("Não foi possível salvar. Verifique se o navegador permite armazenamento local.");
+        return;
+    }
+
+    // Se estava escolhida no formulário, o formulário acompanha o nome novo
+    const campoDoFormulario = subcategoria ? subcategoriaEl : categoriaEl;
+    if (Regras.mesmoNome(campoDoFormulario.value, item.nome)) campoDoFormulario.value = resultado.nome;
+
+    idRenomeando = null;
+    mostrarErroGerenciador("");
+    atualizarTela();
+    gerenciadorListaEl.querySelector(`.gerenciador-escolher[data-id="${id}"]`)?.focus();
+    mostrarAviso(resultado.alteradas
+        ? `"${item.nome}" agora é "${resultado.nome}" (${textoQuantidade(resultado.alteradas)} ${resultado.alteradas === 1 ? "atualizada" : "atualizadas"}).`
+        : `"${item.nome}" agora é "${resultado.nome}".`);
+}
+
+function excluirCategoria(id) {
+    const subcategoria = modoGerenciador === "subcategoria";
+    const categoria = categoriaDoFormulario();
+    const item = itensDoGerenciador().find((atual) => atual.id === id);
+    if (!item) return;
+
+    const usos = subcategoria
+        ? Regras.contarUsoCategoria(movimentacoes, categoria.nome, item.nome)
+        : Regras.contarUsoCategoria(movimentacoes, item.nome);
+    const nivel = subcategoria ? "subcategoria" : "categoria";
+    const partes = [`Excluir a ${nivel} "${item.nome}"?`];
+    if (usos) {
+        partes.push(`${usos === 1 ? "A movimentação que usa" : `As ${usos} movimentações que usam`} essa ${nivel} `
+            + `${usos === 1 ? "fica" : "ficam"} sem ${nivel} (${usos === 1 ? "ela não é excluída" : "elas não são excluídas"}).`);
+    } else {
+        partes.push(`Nenhuma movimentação usa essa ${nivel}.`);
+    }
+    if (!subcategoria && item.subcategorias.length) {
+        partes.push(`As subcategorias dela também são excluídas: ${item.subcategorias.map((sub) => sub.nome).join(", ")}.`);
+    }
+    if (!confirm(partes.join("\n\n"))) return;
+
+    const resultado = Regras.excluirCategoria(categorias, movimentacoes, id);
+    if (resultado.erro || !salvarGerenciador(resultado.categorias, resultado.lista)) {
+        mostrarErroGerenciador(resultado.erro || "Não foi possível salvar. Verifique se o navegador permite armazenamento local.");
+        return;
+    }
+
+    // Se estava escolhida no formulário, sai do formulário também
+    if (subcategoria) {
+        if (Regras.mesmoNome(subcategoriaEl.value, item.nome)) subcategoriaEl.value = "";
+    } else if (Regras.mesmoNome(categoriaEl.value, item.nome)) {
+        categoriaEl.value = "";
+        subcategoriaEl.value = "";
+    }
+
+    idRenomeando = null;
+    atualizarTela();
+    novaCategoriaEl.focus();
+    mostrarAviso(`${subcategoria ? "Subcategoria" : "Categoria"} "${item.nome}" excluída.`);
 }
 
 // ---------- Limpar tudo ----------
@@ -888,25 +1305,6 @@ function manterSelecao(select, opcoes, selecionada, padrao) {
     select.value = valores.includes(selecionada) ? selecionada : padrao;
 }
 
-// Sugestões que aparecem ao digitar no campo de categoria do formulário
-function atualizarSugestoesCategoria() {
-    sugestoesCategoriaEl.replaceChildren(
-        ...Regras.listarCategorias(movimentacoes).map((cat) => new Option(cat))
-    );
-    atualizarSugestoesSubcategoria();
-}
-
-// Sugestões de subcategoria: só as da categoria digitada no formulário
-function atualizarSugestoesSubcategoria() {
-    const categoria = Regras.usarGrafiaExistente(
-        categoriaEl.value.trim(),
-        Regras.listarCategorias(movimentacoes)
-    );
-    sugestoesSubcategoriaEl.replaceChildren(
-        ...Regras.listarSubcategorias(movimentacoes, categoria).map((sub) => new Option(sub))
-    );
-}
-
 function limparFiltros() {
     resetarFiltros();
     atualizarHistoricoDoInicio();
@@ -1060,7 +1458,8 @@ function cancelarSelecao() {
 
 function cancelarSelecaoComEsc(evento) {
     // Se o menu de dados ou um diálogo estiver aberto, o Esc fecha só ele
-    if (evento.key === "Escape" && menuDadosEl.hidden && !algumDialogoAberto() && selecionadas.size > 0) {
+    if (evento.key === "Escape" && menuDadosEl.hidden && !modoGerenciador && !algumDialogoAberto()
+        && selecionadas.size > 0) {
         cancelarSelecao();
     }
 }
@@ -2170,7 +2569,8 @@ function atualizarTela() {
     atualizarResumo();
     atualizarOpcoesMes();
     atualizarOpcoesCategoria();
-    atualizarSugestoesCategoria();
+    sincronizarCategorias();
+    atualizarSeletoresCategoria();
     atualizarHistorico();
     if (visao === VISAO.RELATORIOS) atualizarRelatorio();
 }
@@ -2215,6 +2615,13 @@ function textoTamanho(caracteres) {
     const kb = caracteres / 1024;
     if (kb < 1024) return `${Math.max(1, Math.round(kb)).toLocaleString("pt-BR")} KB`;
     return `${(kb / 1024).toLocaleString("pt-BR", { maximumFractionDigits: 1 })} MB`;
+}
+
+// Grava a lista e, se deu certo, passa a usá-la. Devolve true/false.
+function salvar(novaLista) {
+    if (!Armazenamento.salvarMovimentacoes(novaLista)) return false;
+    movimentacoes = novaLista;
+    return true;
 }
 
 // Ícone SVG com os traços informados (ver ICONE)

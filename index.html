@@ -363,25 +363,62 @@
                         </div>
                     </fieldset>
 
-                    <!-- Categoria e subcategoria: texto livre, com sugestões do que já foi usado -->
-                    <div class="form-linha">
+                    <!-- Categoria e subcategoria: escolhidas no gerenciador de categorias (botão "Selecionar"),
+                         onde também dá para criar, renomear e excluir -->
+                    <div class="form-linha seletores-categoria">
                         <div class="form-grupo">
                             <div class="label-linha">
-                                <label for="categoria">Categoria</label>
+                                <span class="rotulo-campo" id="rotulo-categoria">Categoria</span>
                                 <small>opcional</small>
                             </div>
-                            <input type="text" id="categoria" list="sugestoes-categoria"
-                                   placeholder="Ex.: Alimentação" maxlength="20" autocomplete="off">
-                            <datalist id="sugestoes-categoria"></datalist>
+                            <button type="button" id="btn-categoria" class="btn-seletor vazio"
+                                    aria-haspopup="dialog" aria-expanded="false" aria-controls="gerenciador-categorias"
+                                    aria-labelledby="rotulo-categoria texto-categoria">
+                                <span id="texto-categoria" class="btn-seletor-texto">Selecionar</span>
+                                <svg class="icone" viewBox="0 0 24 24" aria-hidden="true"><path d="M6 9l6 6 6-6"/></svg>
+                            </button>
+                            <input type="hidden" id="categoria" value="">
                         </div>
                         <div class="form-grupo">
                             <div class="label-linha">
-                                <label for="subcategoria">Subcategoria</label>
+                                <span class="rotulo-campo" id="rotulo-subcategoria">Subcategoria</span>
                                 <small>opcional</small>
                             </div>
-                            <input type="text" id="subcategoria" list="sugestoes-subcategoria"
-                                   placeholder="Ex.: Mercado" maxlength="20" autocomplete="off">
-                            <datalist id="sugestoes-subcategoria"></datalist>
+                            <!-- Só fica ativo depois de escolher a categoria -->
+                            <button type="button" id="btn-subcategoria" class="btn-seletor vazio" disabled
+                                    aria-haspopup="dialog" aria-expanded="false" aria-controls="gerenciador-categorias"
+                                    aria-labelledby="rotulo-subcategoria texto-subcategoria">
+                                <span id="texto-subcategoria" class="btn-seletor-texto">Selecionar</span>
+                                <svg class="icone" viewBox="0 0 24 24" aria-hidden="true"><path d="M6 9l6 6 6-6"/></svg>
+                            </button>
+                            <input type="hidden" id="subcategoria" value="">
+                        </div>
+
+                        <!-- Gerenciador de categorias: o mesmo painel serve para categoria e subcategoria.
+                             Escolher, criar, renomear (✎) e excluir (×). -->
+                        <div id="gerenciador-categorias" class="gerenciador" role="dialog"
+                             aria-labelledby="gerenciador-titulo" hidden>
+                            <div class="gerenciador-cabecalho">
+                                <div class="gerenciador-titulos">
+                                    <strong id="gerenciador-titulo">Categorias</strong>
+                                    <small id="gerenciador-subtitulo"></small>
+                                </div>
+                                <button type="button" id="btn-fechar-gerenciador" class="btn-acao gerenciador-fechar"
+                                        aria-label="Fechar" title="Fechar">×</button>
+                            </div>
+
+                            <div class="gerenciador-nova">
+                                <input type="text" id="nova-categoria" maxlength="20" autocomplete="off"
+                                       placeholder="Nova categoria" aria-label="Nome da nova categoria">
+                                <button type="button" id="btn-criar-categoria" class="btn-criar-categoria">
+                                    <svg class="icone" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 5v14"/><path d="M5 12h14"/></svg>
+                                    Criar
+                                </button>
+                            </div>
+                            <p id="gerenciador-erro" class="gerenciador-erro" role="alert" hidden></p>
+
+                            <ul id="gerenciador-lista" class="gerenciador-lista"></ul>
+                            <p id="gerenciador-vazio" class="gerenciador-vazio" hidden></p>
                         </div>
                     </div>
 

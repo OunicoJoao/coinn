@@ -27,6 +27,10 @@
  *   ajuste = { inicio, fim, quantidade }: só existe na movimentação "Ajuste de saldo",
  *   criada quando um período é exportado e removido (guarda o resultado daquele período
  *   para o saldo não mudar).
+ *
+ * Categorias cadastradas (gerenciador de categorias), guardadas à parte:
+ *   [{ id, nome, subcategorias: [{ id, nome }] }]
+ *   As movimentações continuam guardando o NOME da categoria e da subcategoria.
  */
 
 /* exported Regras */
@@ -241,6 +245,194 @@ const Regras = (function () {
     function rotuloCategoria(mov) {
         if (!mov.categoria) return "";
         return mov.subcategoria ? `${mov.categoria} › ${mov.subcategoria}` : mov.categoria;
+    }
+
+    // ---------- Gerenciador de categorias ----------
+    // Categorias cadastradas: [{ id, nome, subcategorias: [{ id, nome }] }], em ordem
+    // alfabética. Os ids são únicos nos dois níveis. As funções devolvem listas NOVAS.
+
+    function compararNomes(a, b) {
+        return a.nome.localeCompare(b.nome, "pt-BR", { sensitivity: "base" });
+    }
+
+    // "Alimentação" e "alimentação " são o mesmo nome
+    function mesmoNome(a, b) {
+        return textoLimpo(a).toLocaleLowerCase("pt-BR") === textoLimpo(b).toLocaleLowerCase("pt-BR");
+    }
+
+    function ordenarCategorias(categorias) {
+        return categorias
+            .map((categoria) => ({ ...categoria, subcategorias: [...categoria.subcategorias].sort(compararNomes) }))
+            .sort(compararNomes);
+    }
+
+    // Confere o que veio do armazenamento: nomes válidos, sem repetir, ids numéricos únicos
+    function lerCategorias(dados) {
+        if (!Array.isArray(dados)) return [];
+        const ids = new Set();
+        const idValido = (id) => Number.isFinite(id) && !ids.has(id);
+        const nomeValido = (nome) => typeof nome === "string" && textoLimpo(nome)
+            && textoLimpo(nome).length <= LIMITES.CATEGORIA_MAX;
+
+        const categorias = [];
+        dados.forEach((item) => {
+            const id = Number(item?.id);
+            if (!idValido(id) || !nomeValido(item.nome)
+                || categorias.some((cat) => mesmoNome(cat.nome, item.nome))) return;
+            ids.add(id);
+            const subcategorias = [];
+            (Array.isArray(item.subcategorias) ? item.subcategorias : []).forEach((sub) => {
+                const idSub = Number(sub?.id);
+                if (!idValido(idSub) || !nomeValido(sub.nome)
+                    || subcategorias.some((atual) => mesmoNome(atual.nome, sub.nome))) return;
+                ids.add(idSub);
+                subcategorias.push({ id: idSub, nome: textoLimpo(sub.nome) });
+            });
+            categorias.push({ id, nome: textoLimpo(item.nome), subcategorias });
+        });
+        return ordenarCategorias(categorias);
+    }
+
+    // Próximo id livre (maior id dos dois níveis + 1)
+    function proximoIdCategoria(categorias) {
+        return categorias.reduce((maior, categoria) => Math.max(
+            maior, categoria.id, ...categoria.subcategorias.map((sub) => sub.id)
+        ), 0) + 1;
+    }
+
+    // Garante que toda categoria e subcategoria usada nas movimentações esteja cadastrada
+    // (dados antigos, importação). Devolve { categorias, mudou }.
+    function sincronizarCategorias(categorias, lista) {
+        let proximo = proximoIdCategoria(categorias);
+        let mudou = false;
+        const resultado = categorias.map((categoria) => ({ ...categoria, subcategorias: [...categoria.subcategorias] }));
+
+        lista.forEach((mov) => {
+            if (!mov.categoria) return;
+            let categoria = resultado.find((item) => mesmoNome(item.nome, mov.categoria));
+            if (!categoria) {
+                categoria = { id: proximo++, nome: mov.categoria, subcategorias: [] };
+                resultado.push(categoria);
+                mudou = true;
+            }
+            if (mov.subcategoria && !categoria.subcategorias.some((sub) => mesmoNome(sub.nome, mov.subcategoria))) {
+                categoria.subcategorias.push({ id: proximo++, nome: mov.subcategoria });
+                mudou = true;
+            }
+        });
+        return { categorias: mudou ? ordenarCategorias(resultado) : categorias, mudou };
+    }
+
+    // Nome novo (ou renomeado) de categoria ou subcategoria. Erro ou null.
+    // existentes: os outros nomes do mesmo nível (sem o atual de quem está sendo renomeado)
+    function validarNomeCategoria(nome, existentes = []) {
+        const limpo = textoLimpo(nome);
+        if (!limpo) return "Informe o nome.";
+        if (limpo.length > LIMITES.CATEGORIA_MAX) {
+            return `O nome pode ter no máximo ${LIMITES.CATEGORIA_MAX} caracteres.`;
+        }
+        const igual = existentes.find((existente) => mesmoNome(existente, limpo));
+        if (igual !== undefined) return `Já existe "${igual}".`;
+        return null;
+    }
+
+    // Quantas movimentações usam a categoria (ou a subcategoria dentro dela)
+    function contarUsoCategoria(lista, categoria, subcategoria = null) {
+        return lista.filter((mov) => mesmoNome(mov.categoria, categoria)
+            && (subcategoria === null || mesmoNome(mov.subcategoria, subcategoria))).length;
+    }
+
+    // Acha um id nos dois níveis: { categoria, subcategoria } (subcategoria null se o id é de categoria)
+    function encontrarCategoria(categorias, id) {
+        for (const categoria of categorias) {
+            if (categoria.id === id) return { categoria, subcategoria: null };
+            const subcategoria = categoria.subcategorias.find((sub) => sub.id === id);
+            if (subcategoria) return { categoria, subcategoria };
+        }
+        return null;
+    }
+
+    // Cria uma categoria (idCategoria null) ou uma subcategoria dentro da categoria idCategoria.
+    // Devolve { categorias, criada } ou { erro }.
+    function criarCategoria(categorias, nome, idCategoria = null) {
+        const limpo = textoLimpo(nome);
+        const pai = idCategoria === null ? null : categorias.find((item) => item.id === idCategoria);
+        if (idCategoria !== null && !pai) return { erro: "Categoria não encontrada." };
+
+        const irmas = pai ? pai.subcategorias : categorias;
+        const erro = validarNomeCategoria(limpo, irmas.map((item) => item.nome));
+        if (erro) return { erro };
+
+        const criada = { id: proximoIdCategoria(categorias), nome: limpo };
+        const novas = pai
+            ? categorias.map((item) => (item.id === pai.id
+                ? { ...item, subcategorias: [...item.subcategorias, criada] }
+                : item))
+            : [...categorias, { ...criada, subcategorias: [] }];
+        return { categorias: ordenarCategorias(novas), criada };
+    }
+
+    // Troca o nome no cadastro e em todas as movimentações que usavam o nome antigo.
+    // Devolve { categorias, lista, alteradas, nome } ou { erro }.
+    function renomearCategoria(categorias, lista, id, nome) {
+        const achado = encontrarCategoria(categorias, id);
+        if (!achado) return { erro: "Categoria não encontrada." };
+        const { categoria, subcategoria } = achado;
+        const atual = subcategoria || categoria;
+        const limpo = textoLimpo(nome);
+
+        const irmas = subcategoria ? categoria.subcategorias : categorias;
+        const erro = validarNomeCategoria(limpo, irmas.filter((item) => item.id !== id).map((item) => item.nome));
+        if (erro) return { erro };
+
+        const novas = categorias.map((item) => {
+            if (!subcategoria) return item.id === id ? { ...item, nome: limpo } : item;
+            if (item.id !== categoria.id) return item;
+            return { ...item, subcategorias: item.subcategorias.map((sub) => (sub.id === id ? { ...sub, nome: limpo } : sub)) };
+        });
+
+        let alteradas = 0;
+        const novaLista = lista.map((mov) => {
+            if (!mesmoNome(mov.categoria, categoria.nome)) return mov;
+            if (!subcategoria) {
+                alteradas++;
+                return { ...mov, categoria: limpo };
+            }
+            if (!mesmoNome(mov.subcategoria, atual.nome)) return mov;
+            alteradas++;
+            return { ...mov, subcategoria: limpo };
+        });
+
+        return { categorias: ordenarCategorias(novas), lista: novaLista, alteradas, nome: limpo };
+    }
+
+    // Exclui do cadastro. As movimentações não são apagadas: ficam sem categoria
+    // (excluir categoria, junto com as subcategorias dela) ou sem subcategoria.
+    // Devolve { categorias, lista, alteradas } ou { erro }.
+    function excluirCategoria(categorias, lista, id) {
+        const achado = encontrarCategoria(categorias, id);
+        if (!achado) return { erro: "Categoria não encontrada." };
+        const { categoria, subcategoria } = achado;
+
+        const novas = subcategoria
+            ? categorias.map((item) => (item.id === categoria.id
+                ? { ...item, subcategorias: item.subcategorias.filter((sub) => sub.id !== id) }
+                : item))
+            : categorias.filter((item) => item.id !== id);
+
+        let alteradas = 0;
+        const novaLista = lista.map((mov) => {
+            if (!mesmoNome(mov.categoria, categoria.nome)) return mov;
+            if (!subcategoria) {
+                alteradas++;
+                return { ...mov, categoria: "", subcategoria: "" };
+            }
+            if (!mesmoNome(mov.subcategoria, subcategoria.nome)) return mov;
+            alteradas++;
+            return { ...mov, subcategoria: "" };
+        });
+
+        return { categorias: novas, lista: novaLista, alteradas };
     }
 
     // ---------- Criar, editar e excluir ----------
@@ -888,6 +1080,15 @@ const Regras = (function () {
         usarGrafiaExistente,
         aplicarGrafiaExistente,
         rotuloCategoria,
+        mesmoNome,
+        lerCategorias,
+        sincronizarCategorias,
+        validarNomeCategoria,
+        contarUsoCategoria,
+        encontrarCategoria,
+        criarCategoria,
+        renomearCategoria,
+        excluirCategoria,
         adicionarMovimentacao,
         editarMovimentacao,
         excluirMovimentacao,
