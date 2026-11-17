@@ -446,6 +446,28 @@
                                maxlength="30" autocomplete="off" required>
                     </div>
 
+                    <!-- Só na edição de uma movimentação recorrente: "Parcela 3 de 12" -->
+                    <p id="info-serie" class="info-serie" hidden></p>
+
+                    <!-- Recorrência: só ao registrar uma movimentação nova -->
+                    <div id="opcao-repetir-grupo" class="form-opcoes">
+                        <label class="opcao-check">
+                            <input type="checkbox" id="repetir">
+                            <span>
+                                Repetir todo mês
+                                <small>Cria a mesma movimentação todo mês, no mesmo dia (ex.: aluguel, salário, assinaturas).</small>
+                            </span>
+                        </label>
+
+                        <div id="recorrencia-opcoes" class="recorrencia-opcoes" hidden>
+                            <div class="form-grupo">
+                                <label for="repeticoes">Quantas vezes (contando esta)</label>
+                                <input type="number" id="repeticoes" min="2" max="120" step="1" value="12" inputmode="numeric">
+                            </div>
+                            <p id="previa-recorrencia" class="previa-recorrencia" aria-live="polite"></p>
+                        </div>
+                    </div>
+
                     <p id="mensagem-erro" class="mensagem-erro" role="alert" hidden></p>
 
                     <div class="form-botoes">
@@ -553,6 +575,31 @@
             <div class="dialogo-botoes">
                 <button type="button" class="btn-cancelar" data-fechar>Cancelar</button>
                 <button type="submit" id="btn-confirmar-importar">Importar</button>
+            </div>
+        </form>
+    </dialog>
+
+    <!-- Editar ou excluir uma movimentação recorrente: só esta ou esta e as próximas -->
+    <dialog id="dialogo-serie" class="dialogo dialogo-pequeno" aria-labelledby="titulo-serie">
+        <form id="form-serie" class="dialogo-conteudo" novalidate>
+            <h2 id="titulo-serie">Movimentação recorrente</h2>
+            <p id="serie-texto" class="dialogo-texto"></p>
+
+            <fieldset class="dialogo-opcoes">
+                <legend class="visualmente-oculto">Aplicar a</legend>
+                <label class="opcao-radio">
+                    <input type="radio" name="escopo-serie" value="uma" checked>
+                    <span>Só esta parcela <small id="serie-uma-texto"></small></span>
+                </label>
+                <label class="opcao-radio">
+                    <input type="radio" name="escopo-serie" value="serie">
+                    <span>Esta e as próximas <small id="serie-todas-texto"></small></span>
+                </label>
+            </fieldset>
+
+            <div class="dialogo-botoes">
+                <button type="button" class="btn-cancelar" data-fechar>Cancelar</button>
+                <button type="submit" id="btn-confirmar-serie">Continuar</button>
             </div>
         </form>
     </dialog>

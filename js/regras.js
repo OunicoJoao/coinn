@@ -21,12 +21,14 @@
  *
  * Modelo de dados de uma movimentação:
  *   { id, tipo ("entrada" | "saida"), valor, data ("AAAA-MM-DD"), descricao,
- *     categoria, subcategoria, dataModificacao?, ajuste? }
+ *     categoria, subcategoria, dataModificacao?, ajuste?, recorrencia? }
  *   categoria e subcategoria são texto livre e opcionais ("" quando não informadas).
  *   Só existe subcategoria se houver categoria.
  *   ajuste = { inicio, fim, quantidade }: só existe na movimentação "Ajuste de saldo",
  *   criada quando um período é exportado e removido (guarda o resultado daquele período
  *   para o saldo não mudar).
+ *   recorrencia = { grupo, parcela, total }: só existe nas movimentações criadas com
+ *   "Repetir todo mês" (grupo = id da primeira; parcela 1, 2, 3...; total da série).
  *
  * Categorias cadastradas (gerenciador de categorias), guardadas à parte:
  *   [{ id, nome, subcategorias: [{ id, nome }] }]
@@ -49,7 +51,9 @@ const Regras = (function () {
         DESCRICAO_MAX: 30,
         CATEGORIA_MAX: 20,
         VALOR_MIN: 0.01,
-        VALOR_MAX: 999999.99
+        VALOR_MAX: 999999.99,
+        REPETICOES_MIN: 2,   // "Repetir todo mês": quantas vezes, contando a primeira
+        REPETICOES_MAX: 120
     });
 
     // Valores "sem filtro" dos selects do histórico.
@@ -170,6 +174,16 @@ const Regras = (function () {
         return null;
     }
 
+    // Quantas vezes a movimentação se repete (contando a primeira). Erro ou null.
+    function validarRepeticoes(quantidade) {
+        if (!Number.isInteger(quantidade)
+            || quantidade < LIMITES.REPETICOES_MIN
+            || quantidade > LIMITES.REPETICOES_MAX) {
+            return `Informe quantas vezes a movimentação se repete: de ${LIMITES.REPETICOES_MIN} a ${LIMITES.REPETICOES_MAX}.`;
+        }
+        return null;
+    }
+
     // Monta só os campos que são guardados, já limpos
     function normalizarCampos({ tipo, valor, data, descricao, categoria, subcategoria }) {
         const cat = textoLimpo(categoria);
@@ -188,7 +202,22 @@ const Regras = (function () {
     function normalizarMovimentacao(mov) {
         const categoria = textoLimpo(mov.categoria);
         const subcategoria = categoria ? textoLimpo(mov.subcategoria) : "";
-        return { ...mov, categoria, subcategoria };
+        const normalizada = { ...mov, categoria, subcategoria };
+        // Recorrência inválida (ex.: dado corrompido) é descartada; a movimentação fica
+        if ("recorrencia" in mov && !lerRecorrencia(mov.recorrencia)) delete normalizada.recorrencia;
+        return normalizada;
+    }
+
+    // { grupo, parcela, total } válido, ou null
+    function lerRecorrencia(recorrencia) {
+        const grupo = Number(recorrencia?.grupo);
+        const parcela = Number(recorrencia?.parcela);
+        const total = Number(recorrencia?.total);
+        if (!Number.isFinite(grupo) || !Number.isInteger(parcela) || !Number.isInteger(total)
+            || parcela < 1 || total < parcela) {
+            return null;
+        }
+        return { grupo, parcela, total };
     }
 
     // ---------- Categorias e subcategorias ----------
@@ -435,6 +464,11 @@ const Regras = (function () {
         return { categorias: novas, lista: novaLista, alteradas };
     }
 
+    // "3/12" para a terceira de doze parcelas; "" se não for recorrente
+    function rotuloParcela(mov) {
+        return mov.recorrencia ? `${mov.recorrencia.parcela}/${mov.recorrencia.total}` : "";
+    }
+
     // ---------- Criar, editar e excluir ----------
     // Todas devolvem uma NOVA lista, sem alterar a original
 
@@ -457,6 +491,88 @@ const Regras = (function () {
     function excluirMovimentacoes(lista, ids) {
         const excluir = new Set(ids);
         return lista.filter((mov) => !excluir.has(mov.id));
+    }
+
+    // ---------- Recorrência ("Repetir todo mês") ----------
+
+    // "2026-02" + dia 31 -> "2026-02-28" (o mês não tem dia 31: usa o último dia)
+    function diaNoMes(anoMes, dia) {
+        const ultimo = Number(ultimoDiaDoMes(anoMes).slice(8));
+        return `${anoMes}-${String(Math.min(dia, ultimo)).padStart(2, "0")}`;
+    }
+
+    // Mesmo dia, "meses" para frente. "dia" mantém o dia original de uma série do dia 31.
+    function somarMeses(data, meses, dia = Number(data.slice(8))) {
+        return diaNoMes(deslocarMes(data.slice(0, 7), meses), dia);
+    }
+
+    // O que "Repetir todo mês" vai criar, para mostrar no formulário antes de salvar
+    function resumirRecorrencia(data, valor, repeticoes) {
+        const dia = Number(data.slice(8));
+        return {
+            dia,
+            primeira: data,
+            ultima: somarMeses(data, repeticoes - 1),
+            total: Math.round(arredondarCentavos(valor) * 100) * repeticoes / 100,
+            ajustaFimDoMes: dia > 28
+        };
+    }
+
+    // Cria a movimentação (repeticoes = 1) ou a série, uma por mês, no mesmo dia.
+    // Na série, os ids são id, id + 1, id + 2... e o grupo é o id da primeira.
+    function criarMovimentacoes(dados, id, repeticoes = 1) {
+        const campos = normalizarCampos(dados);
+        if (repeticoes <= 1) return [{ id, ...campos }];
+        return Array.from({ length: repeticoes }, (_, indice) => ({
+            id: id + indice,
+            ...campos,
+            data: somarMeses(campos.data, indice),
+            recorrencia: { grupo: id, parcela: indice + 1, total: repeticoes }
+        }));
+    }
+
+    function adicionarMovimentacoes(lista, novas) {
+        return [...lista, ...novas];
+    }
+
+    // Parcelas seguintes da mesma série (parcela maior que a desta)
+    function proximasDaSerie(lista, id) {
+        const base = lista.find((mov) => mov.id === id);
+        if (!base?.recorrencia) return [];
+        return lista.filter((mov) => mov.id !== id
+            && mov.recorrencia?.grupo === base.recorrencia.grupo
+            && mov.recorrencia.parcela > base.recorrencia.parcela);
+    }
+
+    // Edita esta parcela e as próximas da série: tipo, valor, descrição e categoria passam
+    // para todas; se o dia mudou, as próximas passam para esse dia (cada uma no seu mês).
+    function editarSerie(lista, id, dados, dataModificacao) {
+        const base = lista.find((mov) => mov.id === id);
+        if (!base) return lista;
+
+        const proximas = new Set(proximasDaSerie(lista, id).map((mov) => mov.id));
+        const campos = normalizarCampos(dados);
+        const novoDia = Number(campos.data.slice(8));
+        const mudouDia = novoDia !== Number(base.data.slice(8));
+
+        return editarMovimentacao(lista, id, dados, dataModificacao).map((mov) => {
+            if (!proximas.has(mov.id)) return mov;
+            return {
+                ...mov,
+                tipo: campos.tipo,
+                valor: campos.valor,
+                descricao: campos.descricao,
+                categoria: campos.categoria,
+                subcategoria: campos.subcategoria,
+                data: mudouDia ? diaNoMes(mov.data.slice(0, 7), novoDia) : mov.data,
+                dataModificacao
+            };
+        });
+    }
+
+    // Exclui esta parcela e as próximas da série (as anteriores ficam)
+    function excluirSerie(lista, id) {
+        return excluirMovimentacoes(lista, [id, ...proximasDaSerie(lista, id).map((mov) => mov.id)]);
     }
 
     // ---------- #18 Saldo ----------
@@ -874,6 +990,8 @@ const Regras = (function () {
             if (ajuste) {
                 movimentacao.ajuste = { ...ajuste, quantidade: Number(item.ajuste.quantidade) || 0 };
             }
+            const recorrencia = lerRecorrencia(item.recorrencia);
+            if (recorrencia) movimentacao.recorrencia = recorrencia;
             lista.push(movimentacao);
         });
 
@@ -1072,7 +1190,9 @@ const Regras = (function () {
         arredondarCentavos,
         dataValida,
         validarMovimentacao,
+        validarRepeticoes,
         normalizarMovimentacao,
+        lerRecorrencia,
         listarCategorias,
         listarSubcategorias,
         existeSemCategoria,
@@ -1080,6 +1200,7 @@ const Regras = (function () {
         usarGrafiaExistente,
         aplicarGrafiaExistente,
         rotuloCategoria,
+        rotuloParcela,
         mesmoNome,
         lerCategorias,
         sincronizarCategorias,
@@ -1093,6 +1214,14 @@ const Regras = (function () {
         editarMovimentacao,
         excluirMovimentacao,
         excluirMovimentacoes,
+        diaNoMes,
+        somarMeses,
+        resumirRecorrencia,
+        criarMovimentacoes,
+        adicionarMovimentacoes,
+        proximasDaSerie,
+        editarSerie,
+        excluirSerie,
         calcularResumo,
         ehFutura,
         calcularResumoGeral,
