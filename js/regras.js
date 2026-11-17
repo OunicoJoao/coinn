@@ -55,7 +55,14 @@ const Regras = (function () {
         TIPO: "todas",
         MES: "todos",
         CATEGORIA: "__todas__",
-        SUBCATEGORIA: "__todas__"
+        SUBCATEGORIA: "__todas__",
+        QUANDO: "todas"
+    });
+
+    // Filtro "Quando" do histórico (visão geral): só as futuras ou só as que já aconteceram
+    const QUANDO = Object.freeze({
+        FUTURAS: "futuras",
+        REALIZADAS: "realizadas"
     });
 
     // Valor do filtro para "Sem categoria" / "Sem subcategoria"
@@ -387,7 +394,8 @@ const Regras = (function () {
             categoria: filtros.categoria ?? FILTRO_TODOS.CATEGORIA,
             subcategoria: filtros.subcategoria ?? FILTRO_TODOS.SUBCATEGORIA,
             dataInicio: filtros.dataInicio ?? "",
-            dataFim: filtros.dataFim ?? ""
+            dataFim: filtros.dataFim ?? "",
+            quando: filtros.quando ?? FILTRO_TODOS.QUANDO
         };
     }
 
@@ -396,8 +404,10 @@ const Regras = (function () {
         return categoria !== FILTRO_TODOS.CATEGORIA && categoria !== FILTRO_SEM;
     }
 
-    function passaNosFiltros(mov, { tipo, mes, categoria, subcategoria, dataInicio, dataFim }) {
+    function passaNosFiltros(mov, { tipo, mes, categoria, subcategoria, dataInicio, dataFim, quando }, hoje) {
         if (tipo !== FILTRO_TODOS.TIPO && mov.tipo !== tipo) return false;
+        if (quando === QUANDO.FUTURAS && !ehFutura(mov, hoje)) return false;
+        if (quando === QUANDO.REALIZADAS && ehFutura(mov, hoje)) return false;
         if (mes !== FILTRO_TODOS.MES && !mov.data.startsWith(mes)) return false;
         if (dataInicio && mov.data < dataInicio) return false;
         if (dataFim && mov.data > dataFim) return false;
@@ -415,14 +425,16 @@ const Regras = (function () {
         return true;
     }
 
-    function filtrarMovimentacoes(lista, filtros) {
+    // hoje ("AAAA-MM-DD") só é usado pelo filtro "Quando" (futuras / já aconteceram)
+    function filtrarMovimentacoes(lista, filtros, hoje = "") {
         const completos = completarFiltros(filtros);
-        return lista.filter((mov) => passaNosFiltros(mov, completos));
+        return lista.filter((mov) => passaNosFiltros(mov, completos, hoje));
     }
 
     function filtroAtivo(filtros) {
-        const { tipo, mes, categoria, subcategoria, dataInicio, dataFim } = completarFiltros(filtros);
+        const { tipo, mes, categoria, subcategoria, dataInicio, dataFim, quando } = completarFiltros(filtros);
         return tipo !== FILTRO_TODOS.TIPO
+            || quando !== FILTRO_TODOS.QUANDO
             || mes !== FILTRO_TODOS.MES
             || Boolean(dataInicio)
             || Boolean(dataFim)
@@ -430,11 +442,13 @@ const Regras = (function () {
             || (categoriaEspecifica(categoria) && subcategoria !== FILTRO_TODOS.SUBCATEGORIA);
     }
 
-    // Mais recente primeiro: ordena pela data e, no mesmo dia, pela ordem de registro (id)
-    function ordenarHistorico(lista) {
+    // Mais recente primeiro: ordena pela data e, no mesmo dia, pela ordem de registro (id).
+    // crescente = true: a mais próxima primeiro (usado ao ver só as futuras)
+    function ordenarHistorico(lista, crescente = false) {
+        const sentido = crescente ? -1 : 1;
         return [...lista].sort((a, b) => {
-            if (a.data !== b.data) return a.data < b.data ? 1 : -1;
-            return b.id - a.id;
+            if (a.data !== b.data) return (a.data < b.data ? 1 : -1) * sentido;
+            return (b.id - a.id) * sentido;
         });
     }
 
@@ -858,6 +872,7 @@ const Regras = (function () {
         LIMITES,
         FILTRO_TODOS,
         FILTRO_SEM,
+        QUANDO,
         SITUACAO_MES,
         TIPO_PERIODO,
         MODO_IMPORTACAO,

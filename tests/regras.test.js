@@ -791,3 +791,32 @@ describe("importar substituindo", () => {
         assert.equal(resultado.removidas, 3);
     });
 });
+
+describe("filtro Quando (só futuras)", () => {
+    const lista = [
+        mov({ id: 1, data: "2026-11-10" }),
+        mov({ id: 2, data: "2026-11-15" }),
+        mov({ id: 3, data: "2026-11-16" }),
+        mov({ id: 4, data: "2026-12-20" })
+    ];
+    const hoje = "2026-11-15";
+
+    it("só futuras: data depois de hoje", () => {
+        assert.deepEqual(ids(Regras.filtrarMovimentacoes(lista, { quando: Regras.QUANDO.FUTURAS }, hoje)), [3, 4]);
+    });
+
+    it("já aconteceram: até hoje", () => {
+        assert.deepEqual(ids(Regras.filtrarMovimentacoes(lista, { quando: Regras.QUANDO.REALIZADAS }, hoje)), [1, 2]);
+    });
+
+    it("conta como filtro ativo e combina com os outros", () => {
+        assert.equal(Regras.filtroAtivo({ quando: Regras.QUANDO.FUTURAS }), true);
+        assert.equal(Regras.filtroAtivo({ quando: Regras.FILTRO_TODOS.QUANDO }), false);
+        assert.deepEqual(ids(Regras.filtrarMovimentacoes(lista, { quando: Regras.QUANDO.FUTURAS, mes: "2026-12" }, hoje)), [4]);
+    });
+
+    it("ordem crescente: a futura mais próxima primeiro", () => {
+        assert.deepEqual(ids(Regras.ordenarHistorico(lista, true)), [1, 2, 3, 4]);
+        assert.deepEqual(ids(Regras.ordenarHistorico(lista)), [4, 3, 2, 1]);
+    });
+});
