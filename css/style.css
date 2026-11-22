@@ -536,9 +536,12 @@ h2 {
     color: var(--texto-suave);
 }
 
-/* Partes de uma linha de texto que não devem quebrar no meio (ex.: "Início do mês: R$ 700,00") */
+/* Partes de uma linha de texto que não devem quebrar no meio (ex.: "Início do mês: R$ 700,00").
+   Cada parte vai inteira para a próxima linha; só quebra por dentro quando sozinha não cabe
+   na largura (antes ficava numa linha só e criava rolagem horizontal, ex.: na prévia de importar). */
 .texto-parte {
-    white-space: nowrap;
+    display: inline-block;
+    max-width: 100%;
 }
 
 .resumo {

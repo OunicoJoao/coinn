@@ -984,3 +984,51 @@ describe("gerenciador de categorias", () => {
         assert.deepEqual(r.categorias.find((c) => c.nome === "Moradia").subcategorias.map((s) => s.nome), ["Aluguel"]);
     });
 });
+
+describe("campo de valor (dígitos entram pelos centavos)", () => {
+    it("formata enquanto digita, como numa maquininha", () => {
+        assert.equal(Regras.formatarValorDigitado("1"), "0,01");
+        assert.equal(Regras.formatarValorDigitado("10"), "0,10");
+        assert.equal(Regras.formatarValorDigitado("0,100"), "1,00");
+        assert.equal(Regras.formatarValorDigitado("123456"), "1.234,56");
+    });
+
+    it("apagar o último dígito volta uma casa", () => {
+        assert.equal(Regras.formatarValorDigitado("1,0"), "0,10");
+        assert.equal(Regras.formatarValorDigitado("0,0"), "0,00");
+    });
+
+    it("tira zeros à esquerda e ignora o que não é dígito", () => {
+        assert.equal(Regras.formatarValorDigitado("0,105"), "1,05");
+        assert.equal(Regras.formatarValorDigitado("0"), "0,00");
+        assert.equal(Regras.formatarValorDigitado(""), "");
+        assert.equal(Regras.formatarValorDigitado("abc"), "");
+    });
+
+    it("não passa do valor máximo: dígitos a mais são ignorados", () => {
+        assert.equal(Regras.formatarValorDigitado("999.999,999"), "999.999,99");
+    });
+
+    it("lê o número do campo", () => {
+        assert.equal(Regras.lerValorDigitado("1.234,56"), 1234.56);
+        assert.equal(Regras.lerValorDigitado("0,10"), 0.1);
+        assert.equal(Regras.lerValorDigitado(""), 0);
+    });
+
+    it("mostra um valor salvo no formato do campo (ao editar)", () => {
+        assert.equal(Regras.valorParaCampo(10.5), "10,50");
+        assert.equal(Regras.valorParaCampo(999999.99), "999.999,99");
+        const texto = Regras.valorParaCampo(450.5);
+        assert.equal(Regras.formatarValorDigitado(texto), texto);
+        assert.equal(Regras.lerValorDigitado(texto), 450.5);
+    });
+
+    it("valor colado vem inteiro", () => {
+        assert.equal(Regras.lerValorColado("10,5"), 10.5);
+        assert.equal(Regras.lerValorColado("R$ 1.234,56"), 1234.56);
+        assert.equal(Regras.lerValorColado("10.50"), 10.5);
+        assert.equal(Regras.lerValorColado("10"), 10);
+        assert.equal(Regras.lerValorColado("1.234"), 1234);
+        assert.equal(Regras.lerValorColado("abc"), null);
+    });
+});

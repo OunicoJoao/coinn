@@ -11,15 +11,19 @@ Antes de começar: abra o Coinn, aperte F12 > Console e rode `localStorage.remov
 
 | # | Passos | Resultado esperado | OK? |
 |---|---|---|---|
-| 1.1 | Registre uma Entrada de 3500, categoria "Trabalho", subcategoria "Salário" (crie as duas pelo botão "Selecionar"), descrição "Salário" | Aparece no histórico em verde; saldo R$ 3.500,00 | |
-| 1.2 | Registre uma Saída de 450,50, categoria "Alimentação", subcategoria "Mercado", descrição "Mercado do mês" | Aparece em vermelho, com a etiqueta "Alimentação › Mercado"; saldo R$ 3.049,50 | |
+| 1.1 | Registre uma Entrada de R$ 3.500,00 (digite 350000), categoria "Trabalho", subcategoria "Salário" (crie as duas pelo botão "Selecionar"), descrição "Salário" | Aparece no histórico em verde; saldo R$ 3.500,00 | |
+| 1.2 | Registre uma Saída de R$ 450,50 (digite 45050), categoria "Alimentação", subcategoria "Mercado", descrição "Mercado do mês" | Aparece em vermelho, com a etiqueta "Alimentação › Mercado"; saldo R$ 3.049,50 | |
 | 1.3 | Tente registrar sem valor | Mensagem "Informe um valor maior que zero." | |
 | 1.4 | Registre uma movimentação sem categoria e sem subcategoria | É registrada normalmente, sem etiqueta | |
 | 1.4b | Sem escolher a categoria, tente abrir a subcategoria | O botão da subcategoria fica desativado | |
 | 1.4c | Abra a categoria e tente criar "alimentação" (minúsculo) | Mensagem avisando que já existe "Alimentação" | |
 | 1.4d | Escolha a categoria "Alimentação" e abra a subcategoria | Aparece "Mercado" na lista | |
 | 1.5 | Tente digitar uma descrição com mais de 30 caracteres | O campo para em 30 e o contador mostra 30/30 | |
-| 1.6 | Registre uma Entrada de 0,30 e duas Saídas de 0,10 e 0,20 (em um Coinn vazio) | Saldo R$ 0,00, sem sinal de menos e sem cor vermelha | |
+| 1.6 | Registre uma Entrada de 0,30 e duas Saídas de 0,10 e 0,20 (digite 30, 10 e 20, em um Coinn vazio) | Saldo R$ 0,00, sem sinal de menos e sem cor vermelha | |
+| 1.7 | No valor, digite 1, depois 0, depois 0 | O campo mostra 0,01, depois 0,10, depois 1,00 (os dígitos entram pelos centavos) | |
+| 1.8 | Apague um dígito com Backspace e depois digite 12345678 e mais um 9 | Backspace volta uma casa (1,00 → 0,10); o campo para em 123.456,78 e o 9 é ignorado | |
+| 1.9 | Copie "R$ 1.234,5" de outro lugar e cole no valor | O campo mostra 1.234,50 | |
+| 1.10 | Edite uma movimentação de R$ 450,50 | O valor aparece como 450,50 no formulário | |
 
 ## 2. Saldo e histórico
 
@@ -143,6 +147,7 @@ Prepare movimentações em pelo menos dois anos (ex.: algumas em 2025 e algumas 
 | 6b.12 | Importe um arquivo escolhendo "Mês" e "Substituir só o período escolhido" | Só as movimentações daquele mês são trocadas; os outros meses ficam iguais | |
 | 6b.13 | Importe com "Substituir todos os meus dados" e clique em Cancelar no aviso | Nada muda | |
 | 6b.14 | Importe um arquivo exportado antes (versão 2, da Sprint 4) | Funciona normalmente | |
+| 6b.15 | No celular (ou com a janela estreita), abra Importar com um arquivo grande e escolha cada um dos três modos | O resumo quebra em linhas dentro do quadro, sem barra de rolagem para o lado | |
 
 ## 6c. Relatórios
 
