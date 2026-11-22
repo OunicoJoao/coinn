@@ -275,8 +275,6 @@ descricaoEl.maxLength = LIMITES.DESCRICAO_MAX;
 novaCategoriaEl.maxLength = LIMITES.CATEGORIA_MAX;
 repeticoesEl.min = LIMITES.REPETICOES_MIN;
 repeticoesEl.max = LIMITES.REPETICOES_MAX;
-valorEl.min = LIMITES.VALOR_MIN;
-valorEl.max = LIMITES.VALOR_MAX;
 dataEl.value = hoje();
 
 formEl.addEventListener("submit", registrarMovimentacao);
@@ -285,6 +283,9 @@ dataEl.addEventListener("input", () => {
     atualizarAvisoDataFutura();
     atualizarPreviaRecorrencia();
 });
+// O valor é formatado antes de a prévia da recorrência ler o campo
+valorEl.addEventListener("input", formatarCampoValor);
+valorEl.addEventListener("paste", colarValor);
 valorEl.addEventListener("input", atualizarPreviaRecorrencia);
 repetirEl.addEventListener("change", atualizarOpcoesRecorrencia);
 repeticoesEl.addEventListener("input", atualizarPreviaRecorrencia);
@@ -471,11 +472,30 @@ function novoId() {
     return Math.max(Date.now(), maior + 1);
 }
 
+// ---------- Campo de valor ----------
+
+// Formata enquanto a pessoa digita, como numa maquininha: os dígitos entram pelos centavos
+// (1 -> 0,01; 10 -> 0,10; 100 -> 1,00). Apagar tira o último dígito.
+function formatarCampoValor() {
+    valorEl.value = Regras.formatarValorDigitado(valorEl.value);
+    const fim = valorEl.value.length;
+    valorEl.setSelectionRange(fim, fim);
+}
+
+// Colar "10,50" ou "R$ 1.234,56" traz o valor inteiro, e não dígito por dígito
+function colarValor(evento) {
+    evento.preventDefault();
+    const valor = Regras.lerValorColado(evento.clipboardData ? evento.clipboardData.getData("text") : "");
+    if (valor === null || valor > LIMITES.VALOR_MAX) return;
+    valorEl.value = Regras.valorParaCampo(valor);
+    valorEl.dispatchEvent(new Event("input", { bubbles: true }));
+}
+
 function lerFormulario() {
     const tipoMarcado = formEl.querySelector('input[name="tipo"]:checked');
     return {
         tipo: tipoMarcado ? tipoMarcado.value : "",
-        valor: Number(valorEl.value),
+        valor: Regras.lerValorDigitado(valorEl.value),
         data: dataEl.value,
         descricao: descricaoEl.value.trim(),
         categoria: categoriaEl.value.trim(),
@@ -513,7 +533,7 @@ function atualizarPreviaRecorrencia() {
     if (recorrenciaOpcoesEl.hidden) return;
 
     const repeticoes = Number(repeticoesEl.value);
-    const valor = Number(valorEl.value);
+    const valor = Regras.lerValorDigitado(valorEl.value);
     if (!Regras.dataValida(dataEl.value) || Regras.validarRepeticoes(repeticoes)) {
         previaRecorrenciaEl.replaceChildren(criarLinhaDeTexto([
             `De ${LIMITES.REPETICOES_MIN} a ${LIMITES.REPETICOES_MAX} vezes, contando a primeira.`
@@ -596,7 +616,7 @@ function iniciarEdicao(id) {
 
     const radioTipo = formEl.querySelector(`input[name="tipo"][value="${mov.tipo}"]`);
     if (radioTipo) radioTipo.checked = true;
-    valorEl.value = mov.valor;
+    valorEl.value = Regras.valorParaCampo(mov.valor);
     dataEl.value = mov.data;
     descricaoEl.value = mov.descricao;
     categoriaEl.value = mov.categoria;

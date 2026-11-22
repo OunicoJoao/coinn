@@ -8,7 +8,7 @@ Projeto desenvolvido pela equipe **Ministério da Fazenda** na disciplina de Eng
 
 Versão atual: **1.3.0**: MVP ampliado da Sprint 4, com relatórios, exportar/importar por período, gerenciador de categorias e movimentações recorrentes
 
-- **Registrar movimentação** (#17): entrada ou saída, com valor, data, descrição, categoria e subcategoria
+- **Registrar movimentação** (#17): entrada ou saída, com valor, data, descrição, categoria e subcategoria. O valor é formatado enquanto se digita, como numa maquininha: os dígitos entram pelos centavos (1, 0, 0 → 1,00)
 - **Consultar saldo** (#18): saldo atual, total de entradas e total de saídas
 - **Ver histórico** (#19): lista da movimentação mais recente para a mais antiga
 - **Editar e excluir** (#20): com confirmação antes de excluir

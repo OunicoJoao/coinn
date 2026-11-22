@@ -1155,6 +1155,57 @@ const Regras = (function () {
         return formatadorMoeda.format(numero);
     }
 
+    // ---------- Campo de valor (como numa maquininha de cartão) ----------
+    // Os dígitos entram pelos centavos: digitar 1, 0 e 0 mostra 0,01 -> 0,10 -> 1,00.
+
+    const formatadorValor = new Intl.NumberFormat("pt-BR", {
+        minimumFractionDigits: 2,
+        maximumFractionDigits: 2
+    });
+
+    // Quantos dígitos cabem no campo: 999.999,99 tem 8
+    const DIGITOS_VALOR_MAX = String(Math.round(LIMITES.VALOR_MAX * 100)).length;
+
+    // 1234.5 -> "1.234,50"
+    function valorParaCampo(valor) {
+        return formatadorValor.format(valor);
+    }
+
+    // Texto do campo depois de uma tecla -> texto formatado ("" quando não sobra nenhum dígito).
+    // Zeros à esquerda saem, e dígitos além do máximo são ignorados.
+    function formatarValorDigitado(texto) {
+        const todos = String(texto ?? "").replace(/\D/g, "");
+        if (todos === "") return "";
+        const digitos = todos.replace(/^0+/, "").slice(0, DIGITOS_VALOR_MAX);
+        return valorParaCampo(Number(digitos || "0") / 100);
+    }
+
+    // "1.234,56" -> 1234.56 ("" -> 0)
+    function lerValorDigitado(texto) {
+        const digitos = String(texto ?? "").replace(/\D/g, "").replace(/^0+/, "").slice(0, DIGITOS_VALOR_MAX);
+        return Number(digitos || "0") / 100;
+    }
+
+    // Valor colado de outro lugar, escrito por inteiro: "10,5", "R$ 1.234,56", "10.50" ou "10".
+    // Devolve o número ou null quando não há número.
+    function lerValorColado(texto) {
+        const limpo = String(texto ?? "").replace(/[^\d.,]/g, "");
+        if (!/\d/.test(limpo)) return null;
+        let normalizado;
+        if (limpo.includes(",")) {
+            // vírgula é o decimal; pontos são milhar
+            const ultima = limpo.lastIndexOf(",");
+            normalizado = `${limpo.slice(0, ultima).replace(/[.,]/g, "")}.${limpo.slice(ultima + 1).replace(/\./g, "")}`;
+        } else if (/^\d*\.\d{1,2}$/.test(limpo)) {
+            // um ponto com 1 ou 2 casas no fim: "10.50"
+            normalizado = limpo;
+        } else {
+            normalizado = limpo.replace(/\./g, "");
+        }
+        const numero = Number(normalizado);
+        return Number.isFinite(numero) ? arredondarCentavos(numero) : null;
+    }
+
     // "2026-10-14" -> "14/10/2026"
     // (não usa new Date() porque ele interpreta a data em UTC e pode mostrar o dia anterior)
     function formatarData(dataISO) {
@@ -1188,6 +1239,10 @@ const Regras = (function () {
         MODO_IMPORTACAO,
         CATEGORIA_AJUSTE,
         arredondarCentavos,
+        valorParaCampo,
+        formatarValorDigitado,
+        lerValorDigitado,
+        lerValorColado,
         dataValida,
         validarMovimentacao,
         validarRepeticoes,
